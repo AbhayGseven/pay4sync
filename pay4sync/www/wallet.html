@@ -1,0 +1,26 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_content %}
+<table class="p4s-kv">
+	<tbody>
+		<tr><td>Wallet</td><td id="wallet">…</td></tr>
+		<tr><td>Pending</td><td id="pending">…</td></tr>
+		<tr><td>Balance</td><td id="balance">…</td></tr>
+	</tbody>
+</table>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(async function () {
+	const ids = ["wallet", "pending", "balance"];
+	try {
+		const r = await P4S.call("pay4sync.api.wallet.get_balance");
+		ids.forEach((id) => { document.getElementById(id).textContent = P4S.rupee(r[id]); });
+	} catch (e) {
+		ids.forEach((id) => { document.getElementById(id).textContent = "—"; });
+		P4S.showAlert(e.message);
+	}
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_actions %}
+<button type="button" class="p4s-btn" id="template-btn">Download Template</button>
+<a class="p4s-btn p4s-btn-primary" href="/payout-bulk-upload/new">New</a>
+{% endblock %}
+
+{% block p4s_content %}
+<div class="p4s-table-wrap">
+	<table class="p4s-table">
+		<thead><tr>
+			<th class="sr">Sr.</th><th>Import File</th><th>Payout Status</th>
+			<th>Total Number Of Records</th><th>Total Amount</th>
+		</tr></thead>
+		<tbody id="rows"></tbody>
+	</table>
+</div>
+<div class="p4s-load-more p4s-hidden" id="more"><button type="button" class="p4s-btn">Load More</button></div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	document.getElementById("template-btn").addEventListener("click",
+		() => P4S.download("pay4sync.api.bulk.download_template"));
+
+	P4S.list({
+		method: "pay4sync.api.bulk.list_imports",
+		tbody: document.getElementById("rows"),
+		more: document.getElementById("more"),
+		cols: 5,
+		empty: "No imports yet",
+		onClick: (name) => { window.location.href = "/payout-bulk-upload/" + encodeURIComponent(name); },
+		row: (x, sr) => `
+			<tr class="clickable" data-name="${P4S.esc(x.name)}">
+				<td class="sr">${sr}</td>
+				<td>${P4S.esc((x.import_file || "").split("/").pop() || x.name)}</td>
+				<td>${P4S.esc(x.payout_status)}</td>
+				<td>${P4S.esc(x.total_number_of_records)}</td>
+				<td>${P4S.esc(x.total_amount)}</td>
+			</tr>`,
+	});
+})();
+</script>
+{% endblock %}

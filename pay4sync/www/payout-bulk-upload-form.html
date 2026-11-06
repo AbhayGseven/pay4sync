@@ -1,0 +1,167 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_indicator %}{% if doc_name == "new" %}<span class="p4s-pill orange">Not Saved</span>{% endif %}{% endblock %}
+
+{% block p4s_actions %}
+<button type="button" class="p4s-btn p4s-btn-primary p4s-hidden" id="submit-btn">Submit</button>
+<button type="button" class="p4s-btn p4s-hidden" id="clear-btn">Clear</button>
+{% endblock %}
+
+{% block p4s_content %}
+<div id="p4s-loading" class="p4s-muted {{ 'p4s-hidden' if doc_name == 'new' else '' }}">Loading…</div>
+
+<div id="bulk-form" class="{{ 'p4s-hidden' if doc_name != 'new' else '' }}">
+	<div class="p4s-field" style="margin-bottom:16px">
+		<label>Import File<span class="req">*</span></label>
+		<div class="p4s-attach" id="attach-box">
+			<button type="button" class="p4s-btn" id="attach-btn">Attach</button>
+			<span class="file-name" id="file-name"></span>
+			<input type="file" id="file" accept=".xlsx,.csv" hidden>
+		</div>
+		<div class="static p4s-hidden" id="file-static"></div>
+	</div>
+
+	<div class="p4s-field">
+		<label>Payout Data</label>
+		<div class="p4s-child">
+			<div class="p4s-table-wrap">
+				<table class="p4s-table">
+					<thead><tr>
+						<th class="sr">No.</th><th>Beneficiary Name</th><th>Beneficiary Account</th><th>IFSC Code</th>
+						<th class="num">Amount</th><th>Account Type</th><th>Remarks</th>
+					</tr></thead>
+					<tbody id="rows"></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="p4s-grid p4s-hidden" id="totals" style="margin-top:16px">
+		<div class="p4s-field"><label>Total Number Of Records</label><input id="total_records" readonly></div>
+		<div class="p4s-field"><label>Total Amount</label><input id="total_amount" readonly></div>
+	</div>
+
+	<p class="p4s-muted" style="margin-top:14px">Upload the filled template (.xlsx or .csv, up to 5 MB).
+		Bulk payouts are sent via NEFT.</p>
+
+	<div class="p4s-form-actions" id="form-actions">
+		<a class="p4s-btn" href="/payout-bulk-upload">Discard</a>
+		<button type="button" class="p4s-btn p4s-btn-primary" id="save-btn">Save</button>
+	</div>
+</div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	const NAME = {{ doc_name | tojson }};
+	const MAX_BYTES = 5 * 1024 * 1024;
+	const $ = (id) => document.getElementById(id);
+	const NO_DATA = `<tr><td colspan="7"><div class="p4s-no-data">
+		<svg viewBox="0 0 26 32" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="24" height="30" rx="3"/>
+		<path d="M7 10h12M7 15h12M7 20h8"/></svg>No Data</div></td></tr>`;
+	let current = null;
+
+	function renderRows(rows) {
+		$("rows").innerHTML = rows && rows.length ? rows.map((r) => `
+			<tr>
+				<td class="sr">${P4S.esc(r.idx)}</td>
+				<td>${P4S.esc(r.beneficiary_name)}</td>
+				<td>${P4S.esc(r.beneficiary_account)}</td>
+				<td>${P4S.esc(r.ifsc_code)}</td>
+				<td class="num">${P4S.esc(Number(r.amount).toLocaleString("en-IN"))}</td>
+				<td>${P4S.esc(r.account_type)}</td>
+				<td class="wrap">${P4S.esc(r.remarks)}</td>
+			</tr>`).join("") : NO_DATA;
+	}
+
+	/* Show a saved import: file, rows, totals; Submit/Clear only while it is a draft. */
+	function showImport(doc) {
+		current = doc;
+		const draft = doc.docstatus === 0;
+		const hasFile = !!doc.import_file;
+		P4S.setHeader(doc.name, doc.payout_status);
+		renderRows(doc.rows);
+
+		$("attach-box").classList.toggle("p4s-hidden", hasFile || !draft);
+		$("file-static").classList.toggle("p4s-hidden", !hasFile);
+		$("file-static").textContent = hasFile ? doc.import_file.split("/").pop() : "";
+		$("form-actions").classList.toggle("p4s-hidden", hasFile || !draft);
+
+		$("totals").classList.remove("p4s-hidden");
+		$("total_records").value = doc.total_number_of_records || 0;
+		$("total_amount").value = doc.total_amount || 0;
+
+		$("submit-btn").classList.toggle("p4s-hidden", !(draft && doc.rows.length));
+		$("clear-btn").classList.toggle("p4s-hidden", !(draft && hasFile));
+
+		$("p4s-loading").classList.add("p4s-hidden");
+		$("bulk-form").classList.remove("p4s-hidden");
+	}
+
+	$("attach-btn").addEventListener("click", () => $("file").click());
+	$("file").addEventListener("change", () => {
+		P4S.hideAlert();
+		const f = $("file").files[0];
+		$("file-name").textContent = f ? f.name : "";
+	});
+
+	$("save-btn").addEventListener("click", async () => {
+		P4S.hideAlert();
+		const file = $("file").files[0];
+		if (!file) return P4S.showAlert("Missing Fields: Import File");
+		if (!/\.(xlsx|csv)$/i.test(file.name)) return P4S.showAlert("Only .xlsx or .csv files are supported.");
+		if (file.size > MAX_BYTES) return P4S.showAlert("File cannot exceed 5 MB.");
+
+		try {
+			const content = await P4S.fileToBase64(file);
+			const args = { filename: file.name, filecontent: content };
+			if (NAME !== "new") args.name = NAME;
+			const r = await P4S.busy($("save-btn"), P4S.call("pay4sync.api.bulk.upload", args, "POST"), "Saving…");
+			if (NAME === "new") {
+				window.location.href = "/payout-bulk-upload/" + encodeURIComponent(r.data.name);
+			} else {
+				$("file").value = "";
+				$("file-name").textContent = "";
+				showImport(r.data);
+			}
+		} catch (e) {
+			P4S.showAlert(e.message);
+		}
+	});
+
+	$("submit-btn").addEventListener("click", async () => {
+		if (!current) return;
+		const ok = window.confirm(`Create ${current.total_number_of_records} payouts totalling ` +
+			`INR ${Number(current.total_amount).toLocaleString("en-IN")}? This cannot be undone.`);
+		if (!ok) return;
+		try {
+			await P4S.busy($("submit-btn"), P4S.call("pay4sync.api.bulk.submit", { name: current.name }, "POST"), "Submitting…");
+			P4S.showAlert("Submitted. Payouts have been created.", "success");
+			setTimeout(() => { window.location.href = "/payout-bulk-upload"; }, 1500);
+		} catch (e) {
+			P4S.showAlert(e.message);
+		}
+	});
+
+	$("clear-btn").addEventListener("click", async () => {
+		if (!current) return;
+		if (!window.confirm("This will remove the attached file and all imported rows. Continue?")) return;
+		try {
+			const r = await P4S.busy($("clear-btn"), P4S.call("pay4sync.api.bulk.clear", { name: current.name }, "POST"));
+			showImport(r.data);
+		} catch (e) {
+			P4S.showAlert(e.message);
+		}
+	});
+
+	if (NAME === "new") {
+		renderRows([]);
+	} else {
+		P4S.call("pay4sync.api.bulk.get_import", { name: NAME })
+			.then((r) => showImport(r.data))
+			.catch((e) => { $("p4s-loading").textContent = e.message; });
+	}
+})();
+</script>
+{% endblock %}

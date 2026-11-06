@@ -1,0 +1,66 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_actions %}
+<a class="p4s-btn p4s-btn-primary" href="/payout/new">New</a>
+{% endblock %}
+
+{% block p4s_content %}
+<form class="p4s-filters" id="filters" autocomplete="off" novalidate>
+	<input class="p4s-input" name="beneficiary_name" placeholder="Beneficiary Name">
+	<input class="p4s-input" name="beneficiary_account_number" placeholder="Beneficiary Account Number">
+	<input class="p4s-input" name="beneficiary_ifsc_code" placeholder="Beneficiary IFSC Code">
+	<input class="p4s-input" name="amount" placeholder="Amount" inputmode="decimal">
+	<select class="p4s-input" name="status" required>
+		<option value="">Status</option><option>Pending</option><option>In Process</option>
+		<option>Completed</option><option>Failed</option>
+	</select>
+	<select class="p4s-input" name="payment_type" required>
+		<option value="">Payment Type</option><option>NEFT</option><option>RTGS</option><option>IMPS</option><option>UPI</option>
+	</select>
+	<input class="p4s-input" name="cust_ref_number" placeholder="Cust Ref Number">
+	<select class="p4s-input" name="beneficiary_account_type" required>
+		<option value="">Account Type</option><option>Saving</option><option>Current</option><option>Loan</option>
+	</select>
+	<input class="p4s-input" name="payout_date" placeholder="Payout Date" type="text"
+		onfocus="this.type='date'" onblur="if(!this.value)this.type='text'">
+	<input class="p4s-input" name="reference_utr" placeholder="Reference UTR">
+</form>
+
+<div class="p4s-table-wrap">
+	<table class="p4s-table">
+		<thead><tr>
+			<th class="sr">Sr.</th><th>Payout Date</th><th>Beneficiary Name</th><th>Beneficiary<br>Account Number</th>
+			<th class="num">Amount</th><th>Status</th><th>Payment Type</th><th>Reference UTR</th>
+		</tr></thead>
+		<tbody id="rows"></tbody>
+	</table>
+</div>
+<div class="p4s-load-more p4s-hidden" id="more"><button type="button" class="p4s-btn">Load More</button></div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	P4S.list({
+		method: "pay4sync.api.payout.list_payouts",
+		tbody: document.getElementById("rows"),
+		filters: document.getElementById("filters"),
+		more: document.getElementById("more"),
+		cols: 8,
+		empty: "No payouts found",
+		onClick: (name) => { window.location.href = "/payout/" + encodeURIComponent(name); },
+		row: (p, sr) => `
+			<tr class="clickable" data-name="${P4S.esc(p.name)}">
+				<td class="sr">${sr}</td>
+				<td>${P4S.dmy(p.payout_date || p.creation)}</td>
+				<td>${P4S.esc(p.beneficiary_name)}</td>
+				<td>${P4S.esc(p.beneficiary_account_number)}</td>
+				<td class="num">${P4S.inr(p.amount)}</td>
+				<td>${P4S.esc(p.status)}</td>
+				<td>${P4S.esc(p.payment_type)}</td>
+				<td>${P4S.esc(p.reference_utr)}</td>
+			</tr>`,
+	});
+})();
+</script>
+{% endblock %}

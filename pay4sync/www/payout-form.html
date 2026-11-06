@@ -1,0 +1,151 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_indicator %}{% if doc_name == "new" %}<span class="p4s-pill orange">Not Saved</span>{% endif %}{% endblock %}
+
+{% block p4s_content %}
+<div id="p4s-loading" class="p4s-muted {{ 'p4s-hidden' if doc_name == 'new' else '' }}">Loading…</div>
+
+<form id="payout-form" class="{{ 'p4s-hidden' if doc_name != 'new' else '' }}" autocomplete="off" novalidate>
+	<div class="p4s-section-title">Beneficiary Details</div>
+	<div class="p4s-grid">
+		<div class="p4s-field">
+			<label for="beneficiary_name">Beneficiary Name<span class="req">*</span></label>
+			<input id="beneficiary_name" name="beneficiary_name" maxlength="140">
+		</div>
+		<div class="p4s-field">
+			<label for="beneficiary_account_type">Beneficiary Account Type<span class="req">*</span></label>
+			<select id="beneficiary_account_type" name="beneficiary_account_type">
+				<option value=""></option><option>Saving</option><option>Current</option><option>Loan</option>
+			</select>
+		</div>
+		<div class="p4s-field">
+			<label for="beneficiary_account_number" id="account-label">Beneficiary Account Number<span class="req">*</span></label>
+			<input id="beneficiary_account_number" name="beneficiary_account_number" maxlength="64">
+		</div>
+		<div class="p4s-field">
+			<label for="payment_type">Payment Type<span class="req">*</span></label>
+			<select id="payment_type" name="payment_type">
+				<option value=""></option><option>NEFT</option><option>RTGS</option><option>IMPS</option><option>UPI</option>
+			</select>
+		</div>
+		<div class="p4s-field">
+			<label for="beneficiary_ifsc_code">Beneficiary IFSC Code<span class="req" id="ifsc-req">*</span></label>
+			<input id="beneficiary_ifsc_code" name="beneficiary_ifsc_code" maxlength="11" style="text-transform: uppercase">
+		</div>
+		<div class="p4s-field">
+			<label for="cust_ref_number">Cust Ref Number</label>
+			<input id="cust_ref_number" name="cust_ref_number" maxlength="64">
+		</div>
+		<div class="p4s-field">
+			<label for="amount">Amount<span class="req">*</span></label>
+			<input id="amount" name="amount" type="number" min="0" step="0.01" inputmode="decimal">
+		</div>
+		<div></div>
+
+		<div class="p4s-field full p4s-hidden view-only">
+			<label for="status">Status</label>
+			<input id="status" readonly>
+		</div>
+		<div class="p4s-field full">
+			<label for="payout_date">Payout Date</label>
+			<input id="payout_date" readonly>
+		</div>
+		<div class="p4s-field full">
+			<label for="reference_utr">Reference UTR</label>
+			<input id="reference_utr" readonly>
+		</div>
+		<div class="p4s-field full">
+			<label for="bank_batch_no">Bank Batch No</label>
+			<input id="bank_batch_no" readonly>
+		</div>
+		<div class="p4s-field full p4s-hidden" id="error-field">
+			<label for="error_message">Error</label>
+			<textarea id="error_message" rows="2" readonly></textarea>
+		</div>
+	</div>
+
+	<div class="p4s-form-actions" id="form-actions">
+		<a class="p4s-btn" href="/payout">Discard</a>
+		<button type="submit" class="p4s-btn p4s-btn-primary" id="save-btn">Save</button>
+	</div>
+</form>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	const NAME = {{ doc_name | tojson }};
+	const $ = (id) => document.getElementById(id);
+	const form = $("payout-form");
+	const INPUTS = ["beneficiary_name", "beneficiary_account_type", "beneficiary_account_number", "payment_type",
+		"beneficiary_ifsc_code", "cust_ref_number", "amount"];
+
+	function isUpi() { return $("payment_type").value === "UPI"; }
+	function toggleUpi() {
+		$("ifsc-req").classList.toggle("p4s-hidden", isUpi());
+		$("account-label").firstChild.textContent = isUpi() ? "Beneficiary UPI ID" : "Beneficiary Account Number";
+	}
+
+	async function showPayout() {
+		try {
+			const p = (await P4S.call("pay4sync.api.payout.get_payout", { name: NAME })).data;
+			INPUTS.forEach((f) => {
+				const el = $(f);
+				el.value = p[f] === null || p[f] === undefined ? "" : p[f];
+				el.disabled = el.tagName === "SELECT";
+				el.readOnly = true;
+			});
+			$("status").value = p.status || "";
+			$("payout_date").value = P4S.dmy(p.payout_date);
+			$("reference_utr").value = p.reference_utr || "";
+			$("bank_batch_no").value = p.bank_batch_no || "";
+			if (p.status === "Failed" && p.error_message) {
+				$("error_message").value = p.error_message;
+				$("error-field").classList.remove("p4s-hidden");
+			}
+			document.querySelectorAll(".view-only").forEach((el) => el.classList.remove("p4s-hidden"));
+			$("form-actions").classList.add("p4s-hidden");
+			P4S.setHeader(p.name, p.status);
+			toggleUpi();
+			$("p4s-loading").classList.add("p4s-hidden");
+			form.classList.remove("p4s-hidden");
+		} catch (e) {
+			$("p4s-loading").textContent = e.message;
+		}
+	}
+
+	form.addEventListener("submit", async (ev) => {
+		ev.preventDefault();
+		if (NAME !== "new") return;
+		P4S.hideAlert();
+		const data = {};
+		INPUTS.forEach((f) => { data[f] = $(f).value.trim(); });
+		if (isUpi()) delete data.beneficiary_ifsc_code;
+		else data.beneficiary_ifsc_code = data.beneficiary_ifsc_code.toUpperCase();
+
+		const required = { beneficiary_name: "Beneficiary Name", beneficiary_account_type: "Beneficiary Account Type",
+			beneficiary_account_number: isUpi() ? "Beneficiary UPI ID" : "Beneficiary Account Number",
+			payment_type: "Payment Type", amount: "Amount" };
+		if (!isUpi()) required.beneficiary_ifsc_code = "Beneficiary IFSC Code";
+		const missing = Object.keys(required).filter((f) => !data[f]).map((f) => required[f]);
+		if (missing.length) return P4S.showAlert("Missing Fields: " + missing.join(", "));
+		if (!(Number(data.amount) > 0)) return P4S.showAlert("Amount must be greater than zero.");
+
+		const ok = window.confirm(`Send INR ${Number(data.amount).toLocaleString("en-IN")} to ${data.beneficiary_name} via ${data.payment_type}?`);
+		if (!ok) return;
+
+		try {
+			const r = await P4S.busy($("save-btn"),
+				P4S.call("pay4sync.api.payout.create_payout", data, "POST"), "Saving…");
+			window.location.href = "/payout/" + encodeURIComponent(r.payout);
+		} catch (e) {
+			P4S.showAlert(e.message);
+		}
+	});
+
+	$("payment_type").addEventListener("change", toggleUpi);
+	if (NAME === "new") toggleUpi();
+	else showPayout();
+})();
+</script>
+{% endblock %}

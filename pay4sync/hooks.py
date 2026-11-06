@@ -148,6 +148,27 @@ app_license = "mit"
 # Scheduled Tasks
 # ---------------
 
+scheduler_events = {
+	"daily": [
+		"pay4sync.utils.logger.clear_old_logs",
+	],
+}
+
+fixtures = [
+	{"dt": "Role", "filters": [["name", "=", "Pay4sync Merchant"]]},
+]
+
+# Merchants land on their payouts page after login.
+role_home_page = {
+	"Pay4sync Merchant": "payout",
+}
+
+# /payout/new, /payout/<name>, /payout-bulk-upload/new, /payout-bulk-upload/<name>
+website_route_rules = [
+	{"from_route": "/payout/<name>", "to_route": "payout-form"},
+	{"from_route": "/payout-bulk-upload/<name>", "to_route": "payout-bulk-upload-form"},
+]
+
 # scheduler_events = {
 # 	"all": [
 # 		"pay4sync.tasks.all"

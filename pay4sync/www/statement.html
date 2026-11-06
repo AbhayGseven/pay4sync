@@ -1,0 +1,70 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_actions %}
+<button type="button" class="p4s-btn" id="download-btn">Download CSV</button>
+{% endblock %}
+
+{% block p4s_content %}
+<form class="p4s-filters" id="st-form" novalidate>
+	<div class="p4s-field"><label for="from_date">From Date</label>
+		<input class="p4s-input" id="from_date" name="from_date" type="date" style="width:150px"></div>
+	<div class="p4s-field"><label for="to_date">To Date</label>
+		<input class="p4s-input" id="to_date" name="to_date" type="date" style="width:150px"></div>
+	<div class="p4s-field" style="align-self:flex-end">
+		<button type="submit" class="p4s-btn p4s-btn-primary" id="view-btn">View</button></div>
+</form>
+<p class="p4s-muted" style="margin:-4px 0 12px">Up to 366 days at a time.</p>
+
+<div class="p4s-table-wrap">
+	<table class="p4s-table">
+		<thead><tr><th>Date</th><th>Description</th><th>Cust Ref Number</th><th>UTR</th>
+			<th class="num">Withdrawal</th><th class="num">Deposit</th><th class="num">Balance</th></tr></thead>
+		<tbody id="rows"><tr><td class="p4s-empty" colspan="7">Choose dates and click View</td></tr></tbody>
+	</table>
+</div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	const $ = (id) => document.getElementById(id);
+	const amt = (v) => (v === "" || v === null || v === undefined ? "" : P4S.inr(v));
+	$("from_date").value = P4S.daysAgo(30);
+	$("to_date").value = P4S.today();
+
+	function range() {
+		const d = P4S.formData($("st-form"));
+		if (!d.from_date || !d.to_date) throw new Error("Please choose both dates.");
+		if (d.to_date < d.from_date) throw new Error("'To Date' cannot be before 'From Date'.");
+		return d;
+	}
+
+	$("st-form").addEventListener("submit", async (ev) => {
+		ev.preventDefault();
+		P4S.hideAlert();
+		try {
+			const r = await P4S.busy($("view-btn"), P4S.call("pay4sync.api.statement.get_statement", range()), "Loading…");
+			const last = r.data.length - 1;
+			$("rows").innerHTML = r.data.map((x, i) => `
+				<tr class="${i === 0 || i === last ? "p4s-strong" : ""}">
+					<td>${P4S.dmy(x.date)}</td>
+					<td class="wrap">${P4S.esc(x.description)}</td>
+					<td>${P4S.esc(x.cust_ref_number)}</td>
+					<td>${P4S.esc(x.reference_utr)}</td>
+					<td class="num">${amt(x.withdrawal)}</td>
+					<td class="num">${amt(x.deposit)}</td>
+					<td class="num">${amt(x.balance)}</td>
+				</tr>`).join("");
+		} catch (e) {
+			P4S.showAlert(e.message);
+		}
+	});
+
+	$("download-btn").addEventListener("click", () => {
+		P4S.hideAlert();
+		try { P4S.download("pay4sync.api.statement.download_statement", range()); }
+		catch (e) { P4S.showAlert(e.message); }
+	});
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "templates/base.html" %}
+
+{% block title %}{{ title }} · pay4push{% endblock %}
+
+{%- block style %}
+<link rel="stylesheet" href="/assets/pay4sync/css/pay4sync.css?v={{ p4s_version }}">
+{%- endblock -%}
+
+{%- block navbar -%}
+<header class="p4s-topbar">
+	<div class="p4s-wrap p4s-topbar-inner">
+		<a class="p4s-brand" href="/payout">pay4<span>push</span></a>
+		<div class="p4s-avatar-menu">
+			<button type="button" class="p4s-avatar" id="p4s-avatar" title="{{ p4s_user }}">{{ p4s_initial }}</button>
+			<div class="p4s-dropdown" id="p4s-dropdown" hidden>
+				<div class="p4s-dropdown-user">{{ p4s_user }}</div>
+				<a href="/api/method/web_logout">Logout</a>
+			</div>
+		</div>
+	</div>
+</header>
+{%- endblock -%}
+
+{% block content %}
+<div class="p4s-wrap p4s-layout">
+	<aside class="p4s-sidebar">
+		{%- for item in p4s_nav %}
+		<a href="{{ item.route }}" class="{{ 'active' if item.key == active else '' }}">{{ item.label }}</a>
+		{%- endfor %}
+	</aside>
+
+	<main class="p4s-content">
+		{%- if p4s_breadcrumbs %}
+		<nav class="p4s-breadcrumbs">
+			{%- for crumb in p4s_breadcrumbs %}
+			<a href="{{ crumb.route }}">{{ crumb.label }}</a><span class="sep">&rsaquo;</span>
+			{%- endfor %}
+			<span class="current">{{ title }}</span>
+		</nav>
+		{%- endif %}
+
+		<div class="p4s-panel">
+			<div id="p4s-alert" class="p4s-alert" role="alert" hidden></div>
+			<div class="p4s-panel-head">
+				<div class="p4s-panel-title">
+					<h1 id="p4s-title">{{ title }}</h1>
+					<span id="p4s-indicator">{% block p4s_indicator %}{% endblock %}</span>
+				</div>
+				<div class="p4s-panel-actions">{% block p4s_actions %}{% endblock %}</div>
+			</div>
+			{% block p4s_content %}{% endblock %}
+		</div>
+	</main>
+</div>
+{% endblock %}
+
+{%- block footer -%}
+<footer class="p4s-footer"><div class="p4s-wrap">&copy; pay4push</div></footer>
+{%- endblock -%}
+
+{%- block script %}
+<script src="/assets/pay4sync/js/pay4sync.js?v={{ p4s_version }}"></script>
+{% block p4s_script %}{% endblock %}
+{%- endblock %}

@@ -1,0 +1,40 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_content %}
+<form class="p4s-filters" id="filters" autocomplete="off" novalidate>
+	<input class="p4s-input" name="recharge_date" placeholder="Recharge Date" type="text"
+		onfocus="this.type='date'" onblur="if(!this.value)this.type='text'">
+	<input class="p4s-input" name="amount" placeholder="Amount" inputmode="decimal">
+	<input class="p4s-input" name="remarks" placeholder="Remarks">
+</form>
+
+<div class="p4s-table-wrap">
+	<table class="p4s-table">
+		<thead><tr><th class="sr">Sr.</th><th>Recharge Date</th><th>Amount</th><th>Remarks</th></tr></thead>
+		<tbody id="rows"></tbody>
+	</table>
+</div>
+<div class="p4s-load-more p4s-hidden" id="more"><button type="button" class="p4s-btn">Load More</button></div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	P4S.list({
+		method: "pay4sync.api.recharge.list_recharges",
+		tbody: document.getElementById("rows"),
+		filters: document.getElementById("filters"),
+		more: document.getElementById("more"),
+		cols: 4,
+		empty: "No recharges found",
+		row: (x, sr) => `
+			<tr>
+				<td class="sr">${sr}</td>
+				<td>${P4S.dmy(x.recharge_date || x.creation)}</td>
+				<td>${P4S.inr(x.amount)}</td>
+				<td class="wrap">${P4S.esc(x.remarks)}</td>
+			</tr>`,
+	});
+})();
+</script>
+{% endblock %}
