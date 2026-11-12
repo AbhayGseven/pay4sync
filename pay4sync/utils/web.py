@@ -15,7 +15,7 @@ NAV = [
 	{"key": "bulk", "label": "Payout Bulk Import", "route": "/payout-bulk-upload"},
 ]
 
-ASSET_VERSION = "2"
+ASSET_VERSION = "3"
 
 
 def merchant_page(context, title, active, breadcrumbs=None):

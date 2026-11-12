@@ -64,7 +64,11 @@
 		}
 		try { body = await response.json(); } catch (e) { body = null; }
 
-		if (!response.ok) throw new Error(errorMessage(body, response.status));
+		if (!response.ok) {
+			const err = new Error(errorMessage(body, response.status));
+			err.status = response.status;
+			throw err;
+		}
 		return body ? body.message : null;
 	}
 

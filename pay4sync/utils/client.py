@@ -29,6 +29,8 @@ GENERIC_ERRORS = {
 	429: "Too many requests. Please wait a minute and try again.",
 }
 UNAVAILABLE = "Service is temporarily unavailable. Please try again in a few minutes."
+PROCESSING_FAILED = ("Something went wrong while processing your request. "
+	"Please check My Payouts before trying again, or contact support.")
 SHOW_REMOTE_MESSAGE = {400, 404, 409}
 
 
@@ -58,13 +60,27 @@ def _reference(data):
 	return None
 
 
-def call(http_method, endpoint, params=None, body=None, timeout=DEFAULT_TIMEOUT, reference=None):
+def _logout_disabled_merchant():
+	"""pay4done refused this merchant (user disabled or enable_api off): end the pay4push session too."""
+	try:
+		if frappe.session.user not in ("Guest", "Administrator") and getattr(frappe.local, "login_manager", None):
+			frappe.local.login_manager.logout()
+			frappe.db.commit()
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "Pay4sync logout of disabled merchant failed")
+
+
+def call(http_method, endpoint, params=None, body=None, timeout=DEFAULT_TIMEOUT, reference=None,
+		as_user=None, raise_on_error=True):
 	"""Call pay4done.pay4done.merchant_api.<endpoint> as the logged-in merchant.
 
 	Returns pay4done's JSON on success. Raises frappe.ValidationError with a
 	merchant-safe message on failure, or Pay4doneTimeout on a timeout.
+
+	as_user: only for the login check, where nobody is logged in yet.
+	raise_on_error=False: return (status_code, data) instead of raising on a pay4done error.
 	"""
-	user = frappe.session.user
+	user = as_user or frappe.session.user
 	if user in ("Guest", "Administrator"):
 		frappe.throw("Please log in", frappe.PermissionError)
 
@@ -92,22 +108,30 @@ def call(http_method, endpoint, params=None, body=None, timeout=DEFAULT_TIMEOUT,
 		except ValueError:
 			data = None
 	except requests.Timeout:
-		log_api_call(endpoint, http_method, 0, False, elapsed(), reference, "Timeout")
+		log_api_call(endpoint, http_method, 0, False, elapsed(), reference, "Timeout", user=user)
 		raise Pay4doneTimeout(endpoint)
 	except requests.RequestException as e:
-		log_api_call(endpoint, http_method, 0, False, elapsed(), reference, f"Connection error: {e}")
+		log_api_call(endpoint, http_method, 0, False, elapsed(), reference, f"Connection error: {e}", user=user)
 		frappe.throw(UNAVAILABLE)
 
 	ok = status_code == 200 and isinstance(data, dict) and data.get("success")
 	if not ok:
 		error = (data.get("error") if isinstance(data, dict) else None) or f"HTTP {status_code}"
 
-	log_api_call(endpoint, http_method, status_code, ok, elapsed(), reference or _reference(data), error)
+	log_api_call(endpoint, http_method, status_code, ok, elapsed(), reference or _reference(data), error, user=user)
 
+	if not raise_on_error:
+		return status_code, data
 	if ok:
 		return data
+	if status_code == 401 and not as_user:
+		_logout_disabled_merchant()
+		frappe.throw("Your account is not enabled. You have been logged out. Please contact support.")
 	if status_code in SHOW_REMOTE_MESSAGE:
 		frappe.throw(error)
+	if status_code == 500:
+		# pay4done answered but failed internally (its Error Log has the traceback).
+		frappe.throw(PROCESSING_FAILED)
 	frappe.throw(GENERIC_ERRORS.get(status_code, UNAVAILABLE))
 
 

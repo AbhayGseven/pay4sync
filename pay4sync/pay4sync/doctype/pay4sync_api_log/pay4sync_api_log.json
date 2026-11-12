@@ -20,12 +20,12 @@
  ],
  "fields": [
   {
+   "description": "Merchant email (kept even if the pay4push user is removed)",
    "fieldname": "user",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "User",
-   "options": "User"
+   "label": "User"
   },
   {
    "fieldname": "endpoint",
@@ -84,7 +84,7 @@
  "in_create": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-06 14:08:23.099270",
+ "modified": "2026-11-12 11:30:21.149869",
  "modified_by": "Administrator",
  "module": "pay4sync",
  "name": "Pay4sync API Log",

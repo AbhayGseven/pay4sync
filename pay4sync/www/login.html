@@ -1,0 +1,100 @@
+{% extends "templates/base.html" %}
+
+{% block title %}Login · pay4push{% endblock %}
+
+{%- block style %}
+<link rel="stylesheet" href="/assets/pay4sync/css/pay4sync.css?v={{ p4s_version }}">
+<style>
+	body { background: #f3f3f3; }
+	.p4s-login { max-width: 360px; margin: 56px auto; padding: 0 16px; }
+	.p4s-login-brand { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+	.p4s-login-brand span { color: var(--p4s-brand); }
+	.p4s-login-sub { text-align: center; color: var(--p4s-text-light); font-size: 14px; font-weight: 600; margin-bottom: 18px; }
+	.p4s-login .p4s-panel { padding: 28px 24px; }
+	.p4s-login .p4s-field { margin-bottom: 12px; }
+	.p4s-login .p4s-field input { min-height: 34px; }
+	.p4s-login .p4s-btn { width: 100%; padding: 9px 10px; font-size: 13px; }
+	.p4s-login-help { text-align: center; color: var(--p4s-muted); font-size: 12px; margin-top: 14px; }
+	.p4s-pwd { position: relative; }
+	.p4s-pwd button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none;
+		background: none; color: var(--p4s-muted); font-size: 11px; cursor: pointer; }
+</style>
+{%- endblock -%}
+
+{%- block navbar -%}{%- endblock -%}
+
+{% block content %}
+<div class="p4s-login">
+	<div class="p4s-login-brand">pay4<span>push</span></div>
+	<div class="p4s-login-sub">Login to your account</div>
+	<div class="p4s-panel">
+		<div id="p4s-alert" class="p4s-alert" role="alert" hidden></div>
+		<form id="login-form" novalidate>
+			<div class="p4s-field">
+				<label for="usr">Email</label>
+				<input id="usr" name="usr" type="text" autocomplete="username" autofocus required>
+			</div>
+			<div class="p4s-field">
+				<label for="pwd">Password</label>
+				<div class="p4s-pwd">
+					<input id="pwd" name="pwd" type="password" autocomplete="current-password" required>
+					<button type="button" id="toggle-pwd">Show</button>
+				</div>
+			</div>
+			<button type="submit" class="p4s-btn p4s-btn-primary" id="login-btn">Login</button>
+		</form>
+		<div class="p4s-login-help">Forgot your password? Please contact support.</div>
+	</div>
+</div>
+{% endblock %}
+
+{%- block footer -%}{%- endblock -%}
+
+{%- block script %}
+<script src="/assets/pay4sync/js/pay4sync.js?v={{ p4s_version }}"></script>
+<script>
+(function () {
+	const $ = (id) => document.getElementById(id);
+
+	/* Only same-site paths are allowed as a post-login redirect. */
+	function redirectTarget(fallback) {
+		const to = new URLSearchParams(window.location.search).get("redirect-to") || "";
+		return /^\/(?!\/)/.test(to) && !to.startsWith("/login") ? to : fallback;
+	}
+
+	$("toggle-pwd").addEventListener("click", () => {
+		const show = $("pwd").type === "password";
+		$("pwd").type = show ? "text" : "password";
+		$("toggle-pwd").textContent = show ? "Hide" : "Show";
+	});
+
+	$("login-form").addEventListener("submit", async (ev) => {
+		ev.preventDefault();
+		P4S.hideAlert();
+		const usr = $("usr").value.trim();
+		const pwd = $("pwd").value;
+		if (!usr || !pwd) return P4S.showAlert("Please enter your email and password.");
+		/* A 400 here is Frappe's CSRF check: this browser already has another logged-in
+		   session (e.g. Administrator in another tab) that this page's token doesn't match.
+		   Logging in means switching account, so end that session and try once more. */
+		async function attempt() {
+			try {
+				return await P4S.call("pay4sync.api.auth.login", { usr, pwd }, "POST");
+			} catch (e) {
+				if (e.status !== 400) throw e;
+				await fetch("/api/method/web_logout", { credentials: "same-origin" });
+				return P4S.call("pay4sync.api.auth.login", { usr, pwd }, "POST");
+			}
+		}
+		try {
+			const r = await P4S.busy($("login-btn"), attempt(), "Logging in…");
+			window.location.href = redirectTarget(r.home_page || "/payout");
+		} catch (e) {
+			P4S.showAlert(e.message);
+			$("pwd").value = "";
+			$("pwd").focus();
+		}
+	});
+})();
+</script>
+{%- endblock %}

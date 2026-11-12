@@ -27,10 +27,14 @@ def _insert(doc):
 		frappe.log_error(frappe.get_traceback(), f"Failed to write {doc['doctype']}")
 
 
-def log_api_call(endpoint, http_method, status_code, success, duration_ms, reference=None, error=None):
+def log_api_call(endpoint, http_method, status_code, success, duration_ms, reference=None, error=None,
+		user=None):
+	"""`user` is the merchant email the call was made for (plain text, not a link:
+	merchants are managed on pay4done and may not exist, or no longer exist, here)."""
+	user = user or (frappe.session.user if frappe.session.user != "Guest" else None)
 	_insert({
 		"doctype": "Pay4sync API Log",
-		"user": frappe.session.user if frappe.session.user != "Guest" else None,
+		"user": user,
 		"endpoint": endpoint,
 		"http_method": http_method,
 		"status_code": status_code or 0,
