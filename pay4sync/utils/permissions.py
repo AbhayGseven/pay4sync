@@ -1,6 +1,7 @@
 import frappe
 
 MERCHANT_ROLE = "Pay4sync Merchant"
+MANAGER_ROLE = "Ramasetu Manager"
 
 
 def require_merchant():
@@ -8,6 +9,13 @@ def require_merchant():
 	if frappe.session.user in ("Guest", "Administrator"):
 		frappe.throw("Please log in", frappe.PermissionError)
 	frappe.only_for(MERCHANT_ROLE)
+
+
+def require_manager():
+	"""Only logged-in RAMASETU managers may call the manager APIs (read-only)."""
+	if frappe.session.user in ("Guest", "Administrator"):
+		frappe.throw("Please log in", frappe.PermissionError)
+	frappe.only_for(MANAGER_ROLE)
 
 
 def send_file(filename, content):

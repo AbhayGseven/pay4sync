@@ -1,0 +1,52 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_actions %}
+<button type="button" class="p4s-btn" id="csv-btn">Download CSV</button>
+{% endblock %}
+
+{% block p4s_content %}
+<form class="p4s-filters" id="filters" autocomplete="off" novalidate>
+	<select class="p4s-input wide" name="merchant"><option value="">All Merchants</option></select>
+	<label class="p4s-date">From <input class="p4s-input" type="date" name="from_date"></label>
+	<label class="p4s-date">To <input class="p4s-input" type="date" name="to_date"></label>
+	<input class="p4s-input" name="amount" placeholder="Amount" inputmode="decimal">
+	<input class="p4s-input" name="remarks" placeholder="Remarks">
+</form>
+
+<div class="p4s-table-wrap">
+	<table class="p4s-table">
+		<thead><tr>
+			<th class="sr">Sr.</th><th>Merchant</th><th>Recharge Date</th><th class="num">Amount</th>
+			<th>Status</th><th>Remarks</th>
+		</tr></thead>
+		<tbody id="rows"></tbody>
+	</table>
+</div>
+<div class="p4s-load-more p4s-hidden" id="more"><button type="button" class="p4s-btn">Load More</button></div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	P4S.managerList({
+		kind: "recharges",
+		method: "pay4sync.api.manager.list_recharges",
+		tbody: document.getElementById("rows"),
+		filters: document.getElementById("filters"),
+		more: document.getElementById("more"),
+		csv: document.getElementById("csv-btn"),
+		cols: 6,
+		empty: "No recharges found",
+		row: (r, sr, merchant) => `
+			<tr>
+				<td class="sr">${sr}</td>
+				<td>${merchant(r.merchant)}</td>
+				<td>${P4S.dmy(r.recharge_date)}</td>
+				<td class="num">${P4S.inr(r.amount)}</td>
+				<td>${P4S.pill(r.status)}</td>
+				<td class="wrap">${P4S.esc(r.remarks)}</td>
+			</tr>`,
+	});
+})();
+</script>
+{% endblock %}

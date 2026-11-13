@@ -6,10 +6,12 @@ merchant passwords. On login:
 
   * Administrator / System Users of pay4push (the team) log in with their own
     pay4push password, exactly as Frappe's normal login.
-  * Everyone else is a merchant: the email + password are checked against
-    pay4done (merchant_api.login.verify_merchant_login). On success the local
-    Website User (role Pay4sync Merchant, no password) is created the first
-    time, and a pay4push session is started for it.
+  * Everyone else is a merchant and/or a RAMASETU manager: the email + password
+    are checked against pay4done (merchant_api.login.verify_merchant_login),
+    which also says which of the two the user is. On success the local Website
+    User (no password) is created the first time, its local roles (Pay4sync
+    Merchant / Ramasetu Manager) are synced to that answer on every login, and
+    a session is started for it.
 
 A pay4done account can never become a pay4push System User this way: if the
 email already belongs to a System User here, only the pay4push password works.
@@ -19,7 +21,7 @@ import frappe
 
 from pay4sync.utils import client
 from pay4sync.utils.client import UNAVAILABLE, Pay4doneTimeout
-from pay4sync.utils.permissions import MERCHANT_ROLE
+from pay4sync.utils.permissions import MANAGER_ROLE, MERCHANT_ROLE
 
 INVALID = "Invalid login. Please check your email and password."
 MAX_IP_ATTEMPTS = 30
@@ -44,8 +46,10 @@ def _login_team_member(email, password):
 	return {"success": True, "home_page": "/app"}
 
 
-def _ensure_local_merchant(email, full_name):
-	"""Create (first login) or repair the local Website User that represents this merchant."""
+def _sync_local_user(email, full_name, is_merchant, is_manager):
+	"""Create (first login) or update the local Website User for this RAMASETU user, and give it
+	exactly the local roles that match its pay4done roles (merchant and/or manager)."""
+	wanted = {MERCHANT_ROLE: is_merchant, MANAGER_ROLE: is_manager}
 	if not frappe.db.exists("User", email):
 		user = frappe.get_doc({
 			"doctype": "User",
@@ -53,14 +57,23 @@ def _ensure_local_merchant(email, full_name):
 			"first_name": (full_name or email)[:140],
 			"user_type": "Website User",
 			"send_welcome_email": 0,
-			"roles": [{"role": MERCHANT_ROLE}],
+			"roles": [{"role": role} for role, keep in wanted.items() if keep],
 		})
 		user.flags.no_welcome_mail = True
 		user.flags.ignore_password_policy = True
 		user.insert(ignore_permissions=True)
-	elif MERCHANT_ROLE not in frappe.get_roles(email):
-		user = frappe.get_doc("User", email)
-		user.add_roles(MERCHANT_ROLE)
+	else:
+		current = set(frappe.get_roles(email))
+		add = [role for role, keep in wanted.items() if keep and role not in current]
+		remove = [role for role, keep in wanted.items() if not keep and role in current]
+		if add or remove:
+			user = frappe.get_doc("User", email)
+			# Runs before login_as, i.e. as Guest: the role sync is decided by pay4done, not the caller.
+			user.flags.ignore_permissions = True
+			if add:
+				user.add_roles(*add)
+			if remove:
+				user.remove_roles(*remove)
 	frappe.db.commit()
 
 
@@ -82,9 +95,12 @@ def _login_merchant(email, password):
 			frappe.throw(UNAVAILABLE)
 		frappe.throw(INVALID, frappe.AuthenticationError)
 
-	_ensure_local_merchant(email, data.get("full_name"))
+	is_merchant, is_manager = bool(data.get("is_merchant")), bool(data.get("is_manager"))
+	if not (is_merchant or is_manager):
+		frappe.throw(INVALID, frappe.AuthenticationError)
+	_sync_local_user(email, data.get("full_name"), is_merchant, is_manager)
 	frappe.local.login_manager.login_as(email)
-	return {"success": True, "home_page": "/payout"}
+	return {"success": True, "home_page": "/manager/payouts" if is_manager else "/payout"}
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])

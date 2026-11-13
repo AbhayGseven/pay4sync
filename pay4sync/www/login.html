@@ -1,13 +1,13 @@
 {% extends "templates/base.html" %}
 
-{% block title %}Login · pay4push{% endblock %}
+{% block title %}Login · RAMASETU{% endblock %}
 
 {%- block style %}
 <link rel="stylesheet" href="/assets/pay4sync/css/pay4sync.css?v={{ p4s_version }}">
 <style>
-	body { background: #f3f3f3; }
+	body { background: var(--p4s-page-bg); }
 	.p4s-login { max-width: 360px; margin: 56px auto; padding: 0 16px; }
-	.p4s-login-brand { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+	.p4s-login-brand { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .08em; color: var(--p4s-accent); margin-bottom: 6px; }
 	.p4s-login-brand span { color: var(--p4s-brand); }
 	.p4s-login-sub { text-align: center; color: var(--p4s-text-light); font-size: 14px; font-weight: 600; margin-bottom: 18px; }
 	.p4s-login .p4s-panel { padding: 28px 24px; }
@@ -25,7 +25,7 @@
 
 {% block content %}
 <div class="p4s-login">
-	<div class="p4s-login-brand">pay4<span>push</span></div>
+	<div class="p4s-login-brand">RAMASETU</div>
 	<div class="p4s-login-sub">Login to your account</div>
 	<div class="p4s-panel">
 		<div id="p4s-alert" class="p4s-alert" role="alert" hidden></div>

@@ -1,0 +1,50 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_content %}
+<div id="p4s-loading" class="p4s-muted">Loading…</div>
+
+<div id="detail" class="p4s-hidden">
+	<div class="p4s-section-title">Merchant</div>
+	<div class="p4s-grid">
+		<div class="p4s-field full"><label>Merchant</label><input id="merchant" readonly></div>
+	</div>
+
+	<div class="p4s-section-title" style="margin-top:18px">Beneficiary Details</div>
+	<div class="p4s-grid" id="fields"></div>
+</div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	const NAME = {{ doc_name | tojson }};
+	const $ = (id) => document.getElementById(id);
+	const FIELDS = [
+		["beneficiary_name", "Beneficiary Name"], ["beneficiary_account_type", "Beneficiary Account Type"],
+		["beneficiary_account_number", "Beneficiary Account Number"], ["payment_type", "Payment Type"],
+		["beneficiary_ifsc_code", "Beneficiary IFSC Code"], ["cust_ref_number", "Cust Ref Number"],
+		["amount", "Amount", (v) => P4S.inr(v)], ["status", "Status"],
+		["creation", "Created On", (v) => P4S.dmy(v)], ["payout_date", "Payout Date", (v) => P4S.dmy(v)],
+		["reference_utr", "Reference UTR"], ["bank_batch_no", "Bank Batch No"],
+		["remarks", "Remarks"], ["error_message", "Error"],
+	];
+
+	P4S.call("pay4sync.api.manager.get_payout", { name: NAME })
+		.then((r) => {
+			const p = r.data;
+			$("merchant").value = p.merchant || "";
+			$("fields").innerHTML = FIELDS
+				.filter(([f]) => f !== "error_message" || p.error_message)
+				.map(([f, label, fmt]) => {
+					const value = p[f] === null || p[f] === undefined ? "" : (fmt ? fmt(p[f]) : p[f]);
+					return `<div class="p4s-field"><label>${P4S.esc(label)}</label>` +
+						`<input readonly value="${P4S.esc(value)}"></div>`;
+				}).join("");
+			P4S.setHeader(p.name, p.status);
+			$("p4s-loading").classList.add("p4s-hidden");
+			$("detail").classList.remove("p4s-hidden");
+		})
+		.catch((e) => { $("p4s-loading").textContent = e.message; });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_actions %}
+<button type="button" class="p4s-btn" id="csv-btn">Download CSV</button>
+{% endblock %}
+
+{% block p4s_content %}
+<form class="p4s-filters" id="filters" autocomplete="off" novalidate>
+	<select class="p4s-input wide" name="merchant"><option value="">All Merchants</option></select>
+	<label class="p4s-date">From <input class="p4s-input" type="date" name="from_date"></label>
+	<label class="p4s-date">To <input class="p4s-input" type="date" name="to_date"></label>
+	<select class="p4s-input" name="payout_status" required>
+		<option value="">Status</option><option>Draft</option><option>Submitted</option><option>Cancelled</option>
+	</select>
+</form>
+
+<div class="p4s-table-wrap">
+	<table class="p4s-table">
+		<thead><tr>
+			<th class="sr">Sr.</th><th>Merchant</th><th>Import ID</th><th>Created On</th><th>Status</th>
+			<th class="num">Records</th><th class="num">Total Amount</th>
+		</tr></thead>
+		<tbody id="rows"></tbody>
+	</table>
+</div>
+<div class="p4s-load-more p4s-hidden" id="more"><button type="button" class="p4s-btn">Load More</button></div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	P4S.managerList({
+		kind: "bulk",
+		method: "pay4sync.api.manager.list_bulk_imports",
+		tbody: document.getElementById("rows"),
+		filters: document.getElementById("filters"),
+		more: document.getElementById("more"),
+		csv: document.getElementById("csv-btn"),
+		cols: 7,
+		empty: "No bulk imports found",
+		onClick: (name) => { window.location.href = "/manager/bulk-imports/" + encodeURIComponent(name); },
+		row: (b, sr, merchant) => `
+			<tr class="clickable" data-name="${P4S.esc(b.name)}">
+				<td class="sr">${sr}</td>
+				<td>${merchant(b.merchant)}</td>
+				<td>${P4S.esc(b.name)}</td>
+				<td>${P4S.dmy(b.creation)}</td>
+				<td>${P4S.pill(b.payout_status)}</td>
+				<td class="num">${P4S.esc(b.total_number_of_records)}</td>
+				<td class="num">${P4S.inr(b.total_amount)}</td>
+			</tr>`,
+	});
+})();
+</script>
+{% endblock %}

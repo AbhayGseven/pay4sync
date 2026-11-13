@@ -1,0 +1,56 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_actions %}
+<button type="button" class="p4s-btn" id="csv-btn">Download CSV</button>
+{% endblock %}
+
+{% block p4s_content %}
+<form class="p4s-filters" id="filters" autocomplete="off" novalidate>
+	<select class="p4s-input wide" name="merchant"><option value="">All Merchants</option></select>
+	<label class="p4s-date">From <input class="p4s-input" type="date" name="from_date"></label>
+	<label class="p4s-date">To <input class="p4s-input" type="date" name="to_date"></label>
+	<select class="p4s-input wide" name="transaction_type" required>
+		<option value="">Transaction Type</option><option>Recharge</option><option>Recharge Reversal</option>
+		<option>Payout Reserve</option><option>Payout Release</option><option>Payout Settle</option>
+		<option>Payout Reverse</option>
+	</select>
+</form>
+
+<div class="p4s-table-wrap">
+	<table class="p4s-table">
+		<thead><tr>
+			<th class="sr">Sr.</th><th>Merchant</th><th>Posting Date</th><th>Type</th>
+			<th class="num">Amount</th><th>Reference</th><th>Remarks</th>
+		</tr></thead>
+		<tbody id="rows"></tbody>
+	</table>
+</div>
+<div class="p4s-load-more p4s-hidden" id="more"><button type="button" class="p4s-btn">Load More</button></div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	P4S.managerList({
+		kind: "wallet",
+		method: "pay4sync.api.manager.list_wallet_transactions",
+		tbody: document.getElementById("rows"),
+		filters: document.getElementById("filters"),
+		more: document.getElementById("more"),
+		csv: document.getElementById("csv-btn"),
+		cols: 7,
+		empty: "No wallet transactions found",
+		row: (t, sr, merchant) => `
+			<tr>
+				<td class="sr">${sr}</td>
+				<td>${merchant(t.merchant)}</td>
+				<td>${P4S.dmy(t.posting_date)}</td>
+				<td>${P4S.esc(t.transaction_type)}</td>
+				<td class="num">${P4S.inr(t.amount)}</td>
+				<td>${P4S.esc(t.reference_name)}</td>
+				<td class="wrap">${P4S.esc(t.remarks)}</td>
+			</tr>`,
+	});
+})();
+</script>
+{% endblock %}

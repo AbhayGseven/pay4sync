@@ -1,6 +1,6 @@
 {% extends "templates/base.html" %}
 
-{% block title %}{{ title }} · pay4push{% endblock %}
+{% block title %}{{ title }} · RAMASETU{% endblock %}
 
 {%- block style %}
 <link rel="stylesheet" href="/assets/pay4sync/css/pay4sync.css?v={{ p4s_version }}">
@@ -9,7 +9,7 @@
 {%- block navbar -%}
 <header class="p4s-topbar">
 	<div class="p4s-wrap p4s-topbar-inner">
-		<a class="p4s-brand" href="/payout">pay4<span>push</span></a>
+		<a class="p4s-brand" href="{{ '/payout' if p4s_nav else '/manager/payouts' }}">RAMASETU</a>
 		<div class="p4s-avatar-menu">
 			<button type="button" class="p4s-avatar" id="p4s-avatar" title="{{ p4s_user }}">{{ p4s_initial }}</button>
 			<div class="p4s-dropdown" id="p4s-dropdown" hidden>
@@ -27,6 +27,12 @@
 		{%- for item in p4s_nav %}
 		<a href="{{ item.route }}" class="{{ 'active' if item.key == active else '' }}">{{ item.label }}</a>
 		{%- endfor %}
+		{%- if p4s_manager_nav %}
+		<div class="p4s-nav-heading">Manager</div>
+		{%- for item in p4s_manager_nav %}
+		<a href="{{ item.route }}" class="{{ 'active' if item.key == active else '' }}">{{ item.label }}</a>
+		{%- endfor %}
+		{%- endif %}
 	</aside>
 
 	<main class="p4s-content">
@@ -55,7 +61,7 @@
 {% endblock %}
 
 {%- block footer -%}
-<footer class="p4s-footer"><div class="p4s-wrap">&copy; pay4push</div></footer>
+<footer class="p4s-footer"><div class="p4s-wrap">&copy; RAMASETU</div></footer>
 {%- endblock -%}
 
 {%- block script %}

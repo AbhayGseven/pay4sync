@@ -155,11 +155,12 @@ scheduler_events = {
 }
 
 fixtures = [
-	{"dt": "Role", "filters": [["name", "=", "Pay4sync Merchant"]]},
+	{"dt": "Role", "filters": [["name", "in", ["Pay4sync Merchant", "Ramasetu Manager"]]]},
 ]
 
 # Merchants land on their payouts page after login.
 role_home_page = {
+	"Ramasetu Manager": "manager/payouts",
 	"Pay4sync Merchant": "payout",
 }
 
@@ -167,6 +168,8 @@ role_home_page = {
 website_route_rules = [
 	{"from_route": "/payout/<name>", "to_route": "payout-form"},
 	{"from_route": "/payout-bulk-upload/<name>", "to_route": "payout-bulk-upload-form"},
+	{"from_route": "/manager/payouts/<name>", "to_route": "manager/payout-detail"},
+	{"from_route": "/manager/bulk-imports/<name>", "to_route": "manager/bulk-import-detail"},
 ]
 
 # scheduler_events = {

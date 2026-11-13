@@ -6,14 +6,17 @@ Merchants log in with their pay4done email + password; the pay4push team
 
 import frappe
 
-from pay4sync.utils.permissions import MERCHANT_ROLE
+from pay4sync.utils.permissions import MANAGER_ROLE, MERCHANT_ROLE
 from pay4sync.utils.web import ASSET_VERSION
 
 no_cache = 1
 
 
 def _home_for(user):
-	return "/payout" if MERCHANT_ROLE in frappe.get_roles(user) else "/app"
+	roles = frappe.get_roles(user)
+	if MANAGER_ROLE in roles:
+		return "/manager/payouts"
+	return "/payout" if MERCHANT_ROLE in roles else "/app"
 
 
 def get_context(context):

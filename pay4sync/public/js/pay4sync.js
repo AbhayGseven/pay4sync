@@ -1,4 +1,4 @@
-/* Shared helpers for the pay4push merchant pages. Exposes window.P4S. */
+/* Shared helpers for the merchant pages. Exposes window.P4S. */
 (function () {
 	"use strict";
 
@@ -34,7 +34,7 @@
 		return "Something went wrong. Please try again.";
 	}
 
-	/* Call a whitelisted pay4sync method. Resolves with `message`, rejects with an Error. */
+	/* Call a whitelisted server method. Resolves with `message`, rejects with an Error. */
 	async function call(method, args, httpMethod) {
 		httpMethod = httpMethod || "GET";
 		const clean = {};
@@ -93,12 +93,12 @@
 	function number(value) {
 		return Number(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 	}
-	/* "INR 2,500.00" — how pay4done's lists show currency. */
+	/* "INR 2,500.00" — how lists show currency. */
 	function inr(value) {
 		if (value === null || value === undefined || value === "") return "";
 		return isNaN(Number(value)) ? esc(value) : "INR " + number(value);
 	}
-	/* "₹ 2,500.00" — how pay4done's wallet shows currency. */
+	/* "₹ 2,500.00" — how the wallet shows currency. */
 	function rupee(value) {
 		if (value === null || value === undefined || value === "") return "";
 		return isNaN(Number(value)) ? esc(value) : "₹ " + number(value);
@@ -124,7 +124,7 @@
 		const i = document.getElementById("p4s-indicator");
 		if (t && title) t.textContent = title;
 		if (i) i.innerHTML = pill(status);
-		if (title) document.title = title + " · pay4push";
+		if (title) document.title = title + " · RAMASETU";
 	}
 
 	function emptyRow(cols, text) {
@@ -170,6 +170,39 @@
 	}
 	function today() { return isoDate(new Date()); }
 	function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return isoDate(d); }
+	function monthStart() { const d = new Date(); d.setDate(1); return isoDate(d); }
+
+	/*
+	 * Manager list pages: fill the Merchant <select>, default the From/To dates to this
+	 * month, wire the "Download CSV" button, then start the list. Resolves to a
+	 * {email: "Full Name"} map used to show merchant names in rows.
+	 */
+	async function managerList(opts) {
+		const form = opts.filters;
+		const names = {};
+		if (form.from_date && !form.from_date.value) form.from_date.value = monthStart();
+		if (form.to_date && !form.to_date.value) form.to_date.value = today();
+		try {
+			const r = await call("pay4sync.api.manager.list_merchants");
+			r.data.forEach((m) => {
+				names[m.user] = m.full_name || m.user;
+				form.merchant.insertAdjacentHTML("beforeend",
+					`<option value="${esc(m.user)}">${esc(m.full_name || m.user)} (${esc(m.user)})</option>`);
+			});
+		} catch (e) {
+			showAlert(e.message);
+		}
+		if (opts.csv) {
+			opts.csv.addEventListener("click", () => {
+				const args = Object.assign({ kind: opts.kind }, formData(form));
+				Object.keys(args).forEach((k) => { if (!args[k]) delete args[k]; });
+				download("pay4sync.api.manager.export_csv", args);
+			});
+		}
+		const merchantName = (email) => esc(names[email] || email || "");
+		list(Object.assign({}, opts, { row: (item, sr) => opts.row(item, sr, merchantName) }));
+		return names;
+	}
 
 	/*
 	 * Frappe-style list with a filter bar and "Load More".
@@ -236,6 +269,6 @@
 
 	window.P4S = {
 		esc, call, download, showAlert, hideAlert, inr, rupee, dmy, pill, setHeader, emptyRow, busy,
-		formData, fileToBase64, debounce, today, daysAgo, list,
+		formData, fileToBase64, debounce, today, daysAgo, monthStart, list, managerList,
 	};
 })();

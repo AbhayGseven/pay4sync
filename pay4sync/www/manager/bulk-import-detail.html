@@ -1,0 +1,61 @@
+{% extends "templates/p4s_base.html" %}
+
+{% block p4s_content %}
+<div id="p4s-loading" class="p4s-muted">Loading…</div>
+
+<div id="detail" class="p4s-hidden">
+	<div class="p4s-grid" style="margin-bottom:16px">
+		<div class="p4s-field"><label>Merchant</label><input id="merchant" readonly></div>
+		<div class="p4s-field"><label>Created On</label><input id="creation" readonly></div>
+		<div class="p4s-field"><label>Total Number Of Records</label><input id="total_records" readonly></div>
+		<div class="p4s-field"><label>Total Amount</label><input id="total_amount" readonly></div>
+	</div>
+
+	<div class="p4s-field">
+		<label>Payout Data</label>
+		<div class="p4s-child">
+			<div class="p4s-table-wrap">
+				<table class="p4s-table">
+					<thead><tr>
+						<th class="sr">No.</th><th>Beneficiary Name</th><th>Beneficiary Account</th><th>IFSC Code</th>
+						<th class="num">Amount</th><th>Account Type</th><th>Remarks</th>
+					</tr></thead>
+					<tbody id="rows"></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block p4s_script %}
+<script>
+(function () {
+	const NAME = {{ doc_name | tojson }};
+	const $ = (id) => document.getElementById(id);
+
+	P4S.call("pay4sync.api.manager.get_bulk_import", { name: NAME })
+		.then((r) => {
+			const d = r.data;
+			$("merchant").value = d.merchant || "";
+			$("creation").value = P4S.dmy(d.creation);
+			$("total_records").value = d.total_number_of_records || 0;
+			$("total_amount").value = P4S.inr(d.total_amount || 0);
+			$("rows").innerHTML = d.rows.length ? d.rows.map((row) => `
+				<tr>
+					<td class="sr">${P4S.esc(row.idx)}</td>
+					<td>${P4S.esc(row.beneficiary_name)}</td>
+					<td>${P4S.esc(row.beneficiary_account)}</td>
+					<td>${P4S.esc(row.ifsc_code)}</td>
+					<td class="num">${P4S.inr(row.amount)}</td>
+					<td>${P4S.esc(row.account_type)}</td>
+					<td class="wrap">${P4S.esc(row.remarks)}</td>
+				</tr>`).join("") : P4S.emptyRow(7, "No rows");
+			P4S.setHeader(d.name, d.payout_status);
+			$("p4s-loading").classList.add("p4s-hidden");
+			$("detail").classList.remove("p4s-hidden");
+		})
+		.catch((e) => { $("p4s-loading").textContent = e.message; });
+})();
+</script>
+{% endblock %}

@@ -1,15 +1,19 @@
-/* pay4push merchant portal — modelled on pay4done's Frappe web-form portal. */
+/* RAMASETU merchant portal. Light teal theme. */
 :root {
 	--p4s-bg: #ffffff;
+	--p4s-page-bg: #f6faf9;
+	--p4s-accent: #0f766e;
+	--p4s-accent-hover: #0c625b;
+	--p4s-accent-soft: #e2f1ee;
 	--p4s-text: #171717;
 	--p4s-text-light: #525252;
 	--p4s-muted: #7c7c7c;
-	--p4s-border: #ededed;
-	--p4s-panel-border: #e2e2e2;
-	--p4s-control-bg: #f3f3f3;
-	--p4s-control-bg-hover: #ebebeb;
+	--p4s-border: #e3ecea;
+	--p4s-panel-border: #dce8e5;
+	--p4s-control-bg: #f1f6f5;
+	--p4s-control-bg-hover: #e7efed;
 	--p4s-dark: #171717;
-	--p4s-brand: #2563eb;
+	--p4s-brand: #0f766e;
 	--p4s-orange: #e86c13;
 	--p4s-orange-bg: #fff1e7;
 	--p4s-green: #278f5e;
@@ -24,7 +28,7 @@
 }
 
 body {
-	background: var(--p4s-bg);
+	background: var(--p4s-page-bg);
 	color: var(--p4s-text);
 	font-family: "InterVariable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 	font-size: 13px;
@@ -32,17 +36,20 @@ body {
 }
 a { color: inherit; }
 
-.p4s-wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+/* width: 100% — Frappe's body is a flex column, where an auto-margin child shrinks to its
+   content; without it narrow pages (e.g. Settings) were narrower than wide ones (My Payouts). */
+.p4s-wrap { width: 100%; max-width: 1000px; margin: 0 auto; padding: 0 16px; box-sizing: border-box; }
+.p4s-topbar, .p4s-layout, .p4s-footer { flex-shrink: 0; }
 .p4s-hidden { display: none !important; }
 
 /* Top bar */
-.p4s-topbar { border-bottom: 1px solid var(--p4s-border); background: var(--p4s-bg); }
+.p4s-topbar { border-top: 3px solid var(--p4s-accent); border-bottom: 1px solid var(--p4s-border); background: var(--p4s-bg); }
 .p4s-topbar-inner { display: flex; align-items: center; justify-content: space-between; height: 48px; }
-.p4s-brand { font-size: 16px; font-weight: 600; text-decoration: none; color: var(--p4s-text); }
+.p4s-brand { font-size: 16px; font-weight: 700; letter-spacing: .08em; text-decoration: none; color: var(--p4s-accent); }
 .p4s-brand span { color: var(--p4s-brand); }
-.p4s-brand:hover { text-decoration: none; color: var(--p4s-text); }
+.p4s-brand:hover { text-decoration: none; color: var(--p4s-accent-hover); }
 .p4s-avatar-menu { position: relative; }
-.p4s-avatar { width: 26px; height: 26px; border-radius: 50%; border: none; background: #fce7f3; color: #db2777;
+.p4s-avatar { width: 26px; height: 26px; border-radius: 50%; border: none; background: var(--p4s-accent-soft); color: var(--p4s-accent);
 	font-size: 12px; font-weight: 600; cursor: pointer; }
 .p4s-dropdown { position: absolute; right: 0; top: 34px; background: #fff; border: 1px solid var(--p4s-panel-border);
 	border-radius: var(--p4s-radius); box-shadow: 0 4px 16px rgba(0, 0, 0, .08); min-width: 200px; padding: 6px; z-index: 30; }
@@ -56,14 +63,17 @@ a { color: inherit; }
 .p4s-sidebar a { font-size: 12px; font-weight: 600; color: var(--p4s-text); text-decoration: none; padding: 5px 8px;
 	border-radius: var(--p4s-control-radius); }
 .p4s-sidebar a:hover { background: var(--p4s-control-bg); text-decoration: none; color: var(--p4s-text); }
-.p4s-sidebar a.active { background: var(--p4s-control-bg); }
+.p4s-sidebar a.active { background: var(--p4s-accent-soft); color: var(--p4s-accent); }
+.p4s-nav-heading { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+	color: var(--p4s-muted); padding: 16px 8px 4px; }
 .p4s-content { flex: 1 1 auto; min-width: 0; }
 
 @media (max-width: 768px) {
 	.p4s-layout { flex-direction: column; gap: 12px; padding-top: 12px; }
 	.p4s-sidebar { flex: none; flex-direction: row; overflow-x: auto; gap: 4px; padding: 0 0 6px; }
 	.p4s-sidebar a { white-space: nowrap; background: var(--p4s-control-bg); }
-	.p4s-sidebar a.active { background: var(--p4s-dark); color: #fff; }
+	.p4s-sidebar a.active { background: var(--p4s-accent); color: #fff; }
+	.p4s-nav-heading { padding: 5px 4px 5px 10px; align-self: center; white-space: nowrap; }
 }
 
 .p4s-breadcrumbs { font-size: 12px; color: var(--p4s-muted); margin: 0 0 12px 2px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -101,10 +111,13 @@ a { color: inherit; }
 }
 .p4s-field input:hover, .p4s-field select:hover, .p4s-input:hover { background: var(--p4s-control-bg-hover); }
 .p4s-field input:focus, .p4s-field select:focus, .p4s-field textarea:focus, .p4s-input:focus {
-	outline: none; background: #fff; border-color: #c7c7c7; box-shadow: 0 0 0 2px #ededed; }
+	outline: none; background: #fff; border-color: #9fcfc7; box-shadow: 0 0 0 2px var(--p4s-accent-soft); }
 .p4s-field input[readonly], .p4s-field textarea[readonly] { background: var(--p4s-control-bg); cursor: default; box-shadow: none; border-color: transparent; }
 .p4s-field .static { min-height: 28px; padding: 5px 0; font-size: 13px; word-break: break-word; }
 .p4s-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.p4s-form-stack { display: grid; gap: 14px; }
+.p4s-check { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--p4s-text); cursor: pointer; }
+.p4s-check input { width: 13px; height: 13px; margin: 0; cursor: pointer; }
 
 /* List filters (Frappe list style) */
 .p4s-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
@@ -117,8 +130,8 @@ a { color: inherit; }
 	border-radius: var(--p4s-control-radius); padding: 5px 10px; font-size: 12px; font-weight: 500; line-height: 16px;
 	background: var(--p4s-control-bg); color: var(--p4s-text); text-decoration: none; white-space: nowrap; font-family: inherit; }
 .p4s-btn:hover { background: var(--p4s-control-bg-hover); text-decoration: none; color: var(--p4s-text); }
-.p4s-btn-primary { background: var(--p4s-dark); color: #fff; }
-.p4s-btn-primary:hover { background: #383838; color: #fff; }
+.p4s-btn-primary { background: var(--p4s-accent); color: #fff; }
+.p4s-btn-primary:hover { background: var(--p4s-accent-hover); color: #fff; }
 .p4s-btn:disabled { opacity: .55; cursor: not-allowed; }
 
 /* Tables */
@@ -159,3 +172,10 @@ a { color: inherit; }
 .p4s-alert.info { background: var(--p4s-blue-bg); color: var(--p4s-blue); }
 
 .p4s-footer { border-top: 1px solid var(--p4s-border); color: var(--p4s-muted); font-size: 12px; padding: 18px 0 28px; text-align: right; }
+
+/* Manager lists: a date field with a small label inside the filter bar */
+.p4s-filters .p4s-date { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--p4s-muted); }
+.p4s-filters .p4s-date .p4s-input { width: 128px; flex-basis: 128px; }
+.p4s-filters select.p4s-input.wide { width: 170px; flex-basis: 170px; }
+.p4s-list-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: -4px 0 10px;
+	font-size: 12px; color: var(--p4s-muted); flex-wrap: wrap; }
