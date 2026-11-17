@@ -13,12 +13,9 @@
 	<div class="p4s-field">
 		<div class="p4s-field-head">
 			<label for="api_token">API Token</label>
-			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="api_token">Regenerate Token</button>
+			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="api_token">Generate Token</button>
 		</div>
-		<div class="p4s-secret-row">
-			<input id="api_token" type="password" readonly placeholder="Not generated yet">
-			<button type="button" class="p4s-btn" data-copy="api_token">Copy</button>
-		</div>
+		<input id="api_token" readonly tabindex="-1">
 	</div>
 	<label class="p4s-check"><input type="checkbox" id="enable_api"> Enable API</label>
 
@@ -31,12 +28,9 @@
 	<div class="p4s-field">
 		<div class="p4s-field-head">
 			<label for="webhook_secret">Webhook Secret</label>
-			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="webhook_secret">Regenerate Webhook Secret</button>
+			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="webhook_secret">Generate Webhook Secret</button>
 		</div>
-		<div class="p4s-secret-row">
-			<input id="webhook_secret" type="password" readonly placeholder="Not generated yet">
-			<button type="button" class="p4s-btn" data-copy="webhook_secret">Copy</button>
-		</div>
+		<input id="webhook_secret" readonly tabindex="-1">
 	</div>
 
 	<div class="p4s-form-actions">
@@ -44,6 +38,22 @@
 		<button type="submit" class="p4s-btn p4s-btn-primary" id="save-btn">Save</button>
 	</div>
 </form>
+
+<!-- Shows a newly generated secret ONCE. After it is closed, the value is gone from the page. -->
+<div class="p4s-modal-backdrop" id="secret-modal" hidden>
+	<div class="p4s-modal" role="dialog" aria-modal="true" aria-labelledby="secret-modal-title">
+		<h2 id="secret-modal-title">New API Token</h2>
+		<p class="p4s-modal-warn">Copy it now and save it on your server. For your security it will
+			<strong>not be shown again</strong>. If you lose it, generate a new one.</p>
+		<div class="p4s-secret-row">
+			<input id="secret-value" readonly>
+			<button type="button" class="p4s-btn" id="secret-copy">Copy</button>
+		</div>
+		<div class="p4s-form-actions">
+			<button type="button" class="p4s-btn p4s-btn-primary" id="secret-done">Done</button>
+		</div>
+	</div>
+</div>
 {% endblock %}
 
 {% block p4s_script %}
@@ -53,17 +63,19 @@
 	const form = $("settings-form");
 	const TEXT = ["webhook", "ip_address"];
 	const CHECKS = ["enable_webhook", "enable_api", "enable_ip_address"];
-	const SECRETS = ["api_token", "webhook_secret"];
-	const LABELS = { api_token: "API Token", webhook_secret: "Webhook Secret" };
+	const SECRETS = {
+		api_token: { label: "API Token", button: "Token" },
+		webhook_secret: { label: "Webhook Secret", button: "Webhook Secret" },
+	};
 
-	/* Fill the hidden values. The button says "Generate …" while there is no value yet,
-	   "Regenerate …" once there is one. */
+	/* The page only knows whether each secret is set, never its value. */
 	function fillSecrets(s) {
-		SECRETS.forEach((f) => {
-			$(f).value = s[f] || "";
-			document.querySelector(`[data-copy="${f}"]`).disabled = !s[f];
-			const name = f === "api_token" ? "Token" : "Webhook Secret";
-			document.querySelector(`[data-regenerate="${f}"]`).textContent = (s[f] ? "Regenerate " : "Generate ") + name;
+		Object.keys(SECRETS).forEach((f) => {
+			const isSet = !!s[f + "_set"];
+			$(f).value = isSet ? "••••••••••••••••" : "Not generated yet";
+			document.querySelector(`[data-regenerate="${f}"]`).textContent =
+				(isSet ? "Regenerate " : "Generate ") + SECRETS[f].button;
+			document.querySelector(`[data-regenerate="${f}"]`).dataset.isSet = isSet ? "1" : "";
 		});
 	}
 	function fill(s) {
@@ -83,40 +95,45 @@
 		}
 	}
 
-	/* Copy the hidden value; fall back to selecting it if the browser blocks the clipboard. */
-	document.querySelectorAll("[data-copy]").forEach((btn) => {
-		btn.addEventListener("click", async () => {
-			const input = $(btn.dataset.copy);
-			if (!input.value) return;
-			try {
-				await navigator.clipboard.writeText(input.value);
-				btn.textContent = "Copied";
-			} catch (e) {
-				input.type = "text";
-				input.select();
-				btn.textContent = "Press Ctrl+C";
-				setTimeout(() => { input.type = "password"; }, 8000);
-			}
-			setTimeout(() => { btn.textContent = "Copy"; }, 1500);
-		});
+	/* ---- one-time popup ---- */
+	function showOnce(field, value) {
+		$("secret-modal-title").textContent = "New " + SECRETS[field].label;
+		$("secret-value").value = value;
+		$("secret-copy").textContent = "Copy";
+		$("secret-modal").hidden = false;
+		$("secret-value").focus();
+		$("secret-value").select();
+	}
+	function closeOnce() {
+		$("secret-value").value = "";          // forget it: it is never shown again
+		$("secret-modal").hidden = true;
+	}
+	$("secret-copy").addEventListener("click", async () => {
+		const input = $("secret-value");
+		try {
+			await navigator.clipboard.writeText(input.value);
+			$("secret-copy").textContent = "Copied";
+		} catch (e) {
+			input.select();
+			$("secret-copy").textContent = "Press Ctrl+C";
+		}
 	});
+	$("secret-done").addEventListener("click", closeOnce);
 
 	document.querySelectorAll("[data-regenerate]").forEach((btn) => {
 		btn.addEventListener("click", async () => {
 			const field = btn.dataset.regenerate;
-			const label = LABELS[field];
-			// Only warn when there is a value that will stop working.
-			if ($(field).value) {
-				const ok = window.confirm(`Generate a new ${label}? The current ${label} will stop working ` +
-					"immediately, and you will need to update it on your server.");
-				if (!ok) return;
+			const label = SECRETS[field].label;
+			if (btn.dataset.isSet && !window.confirm(`Generate a new ${label}? The current ${label} will stop ` +
+					"working immediately, and you will need to update it on your server.")) {
+				return;
 			}
 			P4S.hideAlert();
 			try {
 				const r = await P4S.busy(btn,
 					P4S.call("pay4sync.api.settings.regenerate", { field }, "POST"), "Generating…");
 				fillSecrets(r.data);
-				P4S.showAlert(`${label} generated. Copy it and save it on your server.`, "success");
+				showOnce(field, r.value);
 			} catch (e) {
 				P4S.showAlert(e.message);
 			}

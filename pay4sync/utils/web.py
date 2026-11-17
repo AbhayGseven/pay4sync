@@ -24,7 +24,7 @@ MANAGER_NAV = [
 	{"key": "m-bulk", "label": "Bulk Imports", "route": "/manager/bulk-imports"},
 ]
 
-ASSET_VERSION = "9"
+ASSET_VERSION = "10"
 
 
 def merchant_page(context, title, active, breadcrumbs=None, role=MERCHANT_ROLE):
