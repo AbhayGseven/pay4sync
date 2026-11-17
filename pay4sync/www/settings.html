@@ -11,11 +11,16 @@
 	<label class="p4s-check"><input type="checkbox" id="enable_webhook"> Enable Webhook</label>
 
 	<div class="p4s-field">
+		<label for="api_token">API Token</label>
+		<input id="api_token" name="api_token" maxlength="140" placeholder="Not generated yet">
+	</div>
+
+	<div class="p4s-field">
 		<div class="p4s-field-head">
-			<label for="api_token">API Token</label>
+			<label for="api_token_2">API Token 2</label>
 			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="api_token">Generate Token</button>
 		</div>
-		<input id="api_token" readonly tabindex="-1">
+		<input id="api_token_2" readonly tabindex="-1">
 	</div>
 	<label class="p4s-check"><input type="checkbox" id="enable_api"> Enable API</label>
 
@@ -61,21 +66,23 @@
 (function () {
 	const $ = (id) => document.getElementById(id);
 	const form = $("settings-form");
-	const TEXT = ["webhook", "ip_address"];
+	const TEXT = ["webhook", "api_token", "ip_address"];
 	const CHECKS = ["enable_webhook", "enable_api", "enable_ip_address"];
 	const SECRETS = {
 		api_token: { label: "API Token", button: "Token" },
 		webhook_secret: { label: "Webhook Secret", button: "Webhook Secret" },
 	};
 
-	/* The page only knows whether each secret is set, never its value. */
+	/* API Token: shown as it is. API Token 2 (its hash) and Webhook Secret: only whether they are set. */
 	function fillSecrets(s) {
+		$("api_token").value = s.api_token || "";
+		$("api_token_2").value = s.api_token_hash_set ? "••••••••••••••••" : "Not generated yet";
+		$("webhook_secret").value = s.webhook_secret_set ? "••••••••••••••••" : "Not generated yet";
 		Object.keys(SECRETS).forEach((f) => {
 			const isSet = !!s[f + "_set"];
-			$(f).value = isSet ? "••••••••••••••••" : "Not generated yet";
-			document.querySelector(`[data-regenerate="${f}"]`).textContent =
-				(isSet ? "Regenerate " : "Generate ") + SECRETS[f].button;
-			document.querySelector(`[data-regenerate="${f}"]`).dataset.isSet = isSet ? "1" : "";
+			const btn = document.querySelector(`[data-regenerate="${f}"]`);
+			btn.textContent = (isSet ? "Regenerate " : "Generate ") + SECRETS[f].button;
+			btn.dataset.isSet = isSet ? "1" : "";
 		});
 	}
 	function fill(s) {

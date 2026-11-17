@@ -2,12 +2,15 @@
 Settings APIs for the RAMASETU Settings page: the same fields as the merchant's
 User Settings record, which lives in pay4done (see utils/client.py).
 
-API Token and Webhook Secret:
-  * are never typed by the merchant: only `regenerate` can replace them with a new
-    random value, so they are always strong;
-  * are never sent to the browser again after they are created. The page only gets
-    `api_token_set` / `webhook_secret_set` (True/False). The new value is returned
-    once, by `regenerate`, so the page can show it a single time in a popup.
+API Token (token 1) is shown to the merchant as it is and can be edited and saved
+(its hash is set by pay4done on save). "API Token 2" is its hash: the browser only
+learns whether it exists (`api_token_hash_set`), never the hash.
+
+Webhook Secret is never sent to the browser after it is created: the page gets
+`webhook_secret_set` only, and the new value once from `regenerate`.
+
+The Webhook Secret is never typed: only `regenerate` replaces it. The API Token can be
+typed and saved, or replaced by `regenerate`.
 """
 
 import secrets
@@ -18,17 +21,18 @@ from pay4sync.utils import client
 from pay4sync.utils.permissions import require_merchant
 
 # Fields the Save button may change.
-EDITABLE_FIELDS = ["webhook", "enable_webhook", "enable_api", "ip_address", "enable_ip_address"]
+EDITABLE_FIELDS = ["webhook", "enable_webhook", "api_token", "enable_api", "ip_address", "enable_ip_address"]
 # Secrets that only `regenerate` may change.
 SECRET_FIELDS = ("api_token", "webhook_secret")
 SECRET_BYTES = 32  # -> 43-character URL-safe value
 
 
 def _without_secrets(response):
-	"""Replace each secret with a <field>_set flag before anything reaches the browser."""
+	"""Keep the API Token (shown read-only); replace the Webhook Secret with a flag; never send the hash."""
 	data = dict((response or {}).get("data") or {})
-	for field in SECRET_FIELDS:
-		data[f"{field}_set"] = bool(data.pop(field, None))
+	data["api_token_set"] = bool(data.get("api_token"))
+	data["webhook_secret_set"] = bool(data.pop("webhook_secret", None))
+	data["api_token_hash_set"] = bool(data.get("api_token_hash_set"))
 	data.pop("api_token_hash", None)
 	return {**response, "data": data}
 
