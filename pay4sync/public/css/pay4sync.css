@@ -179,3 +179,11 @@ a { color: inherit; }
 .p4s-filters select.p4s-input.wide { width: 170px; flex-basis: 170px; }
 .p4s-list-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: -4px 0 10px;
 	font-size: 12px; color: var(--p4s-muted); flex-wrap: wrap; }
+
+/* Settings: hidden secrets with Regenerate (above) and Copy (beside) */
+.p4s-field-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; }
+.p4s-field-head label { margin-bottom: 0; }
+.p4s-btn-sm { padding: 3px 8px; font-size: 11px; }
+.p4s-secret-row { display: flex; gap: 8px; align-items: center; }
+.p4s-secret-row input { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.p4s-secret-row .p4s-btn { flex: 0 0 auto; }

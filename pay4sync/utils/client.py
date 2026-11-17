@@ -71,7 +71,7 @@ def _logout_disabled_merchant():
 
 
 def call(http_method, endpoint, params=None, body=None, timeout=DEFAULT_TIMEOUT, reference=None,
-		as_user=None, raise_on_error=True):
+		as_user=None, raise_on_error=True, extra_headers=None):
 	"""Call pay4done.pay4done.merchant_api.<endpoint> as the logged-in merchant.
 
 	Returns pay4done's JSON on success. Raises frappe.ValidationError with a
@@ -79,6 +79,7 @@ def call(http_method, endpoint, params=None, body=None, timeout=DEFAULT_TIMEOUT,
 
 	as_user: only for the login check, where nobody is logged in yet.
 	raise_on_error=False: return (status_code, data) instead of raising on a pay4done error.
+	extra_headers: added to the request (the token API passes the merchant's token and IP).
 	"""
 	user = as_user or frappe.session.user
 	if user in ("Guest", "Administrator"):
@@ -88,6 +89,8 @@ def call(http_method, endpoint, params=None, body=None, timeout=DEFAULT_TIMEOUT,
 	headers = {"X-P4D-Server-Key": key, "X-P4D-User": user, "Accept": "application/json"}
 	if host:
 		headers["Host"] = host
+	if extra_headers:
+		headers.update(extra_headers)
 
 	started = time.monotonic()
 	status_code, data, error = 0, None, None

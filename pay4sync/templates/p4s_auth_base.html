@@ -1,0 +1,41 @@
+{% extends "templates/base.html" %}
+{#- Shared shell for the logged-out pages (forgot / reset password): same look as /login. -#}
+
+{% block title %}{{ title }} · RAMASETU{% endblock %}
+
+{%- block style %}
+<link rel="stylesheet" href="/assets/pay4sync/css/pay4sync.css?v={{ p4s_version }}">
+<style>
+	body { background: var(--p4s-page-bg); }
+	.p4s-login { max-width: 360px; margin: 56px auto; padding: 0 16px; }
+	.p4s-login-brand { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .08em; color: var(--p4s-accent); margin-bottom: 6px; }
+	.p4s-login-sub { text-align: center; color: var(--p4s-text-light); font-size: 14px; font-weight: 600; margin-bottom: 18px; }
+	.p4s-login .p4s-panel { padding: 28px 24px; }
+	.p4s-login .p4s-field { margin-bottom: 12px; }
+	.p4s-login .p4s-field input { min-height: 34px; }
+	.p4s-login .p4s-btn { width: 100%; padding: 9px 10px; font-size: 13px; }
+	.p4s-login-help { text-align: center; color: var(--p4s-muted); font-size: 12px; margin-top: 14px; }
+	.p4s-login-help a { color: var(--p4s-accent); }
+	.p4s-login-text { font-size: 13px; color: var(--p4s-text-light); margin: 0 0 14px; }
+</style>
+{%- endblock -%}
+
+{%- block navbar -%}{%- endblock -%}
+
+{% block content %}
+<div class="p4s-login">
+	<div class="p4s-login-brand">RAMASETU</div>
+	<div class="p4s-login-sub">{{ title }}</div>
+	<div class="p4s-panel">
+		<div id="p4s-alert" class="p4s-alert" role="alert" hidden></div>
+		{% block p4s_auth_content %}{% endblock %}
+	</div>
+</div>
+{% endblock %}
+
+{%- block footer -%}{%- endblock -%}
+
+{%- block script %}
+<script src="/assets/pay4sync/js/pay4sync.js?v={{ p4s_version }}"></script>
+{% block p4s_auth_script %}{% endblock %}
+{%- endblock %}

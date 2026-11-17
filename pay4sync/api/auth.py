@@ -17,6 +17,9 @@ A pay4done account can never become a pay4push System User this way: if the
 email already belongs to a System User here, only the pay4push password works.
 """
 
+import hashlib
+import secrets
+
 import frappe
 
 from pay4sync.utils import client
@@ -117,3 +120,99 @@ def login(usr=None, pwd=None):
 	if email == "Administrator" or user_type == "System User":
 		return _login_team_member(email, pwd)
 	return _login_merchant(email, pwd)
+
+
+# ---------------------------------------------------------------------------
+# Forgot password. The password lives in pay4done. RAMASETU makes the link (RAMASETU
+# URL), pay4done emails it from its own outgoing account (RAMASETU wording), and
+# RAMASETU checks the link before asking pay4done to set the new password.
+#
+# The link key is random, single-use, valid RESET_LINK_MINUTES, and only its
+# SHA-256 hash is stored (in the cache). Every request gets the same answer,
+# so the page never reveals which emails have an account.
+# ---------------------------------------------------------------------------
+
+RESET_LINK_MINUTES = 30
+RESET_SENT = ("If an account exists for this email, we have sent a link to reset the password. "
+	"Please check your inbox.")
+RESET_INVALID = "This reset link is invalid or has expired. Please request a new one."
+MAX_RESET_PER_EMAIL = 5  # per hour
+MAX_RESET_PER_IP = 20  # per hour
+
+
+def _reset_cache_key(key):
+	return "p4s_reset:" + hashlib.sha256(key.encode()).hexdigest()
+
+
+def _over_limit(cache_key, limit, seconds=3600):
+	try:
+		count = frappe.utils.cint(frappe.cache.get_value(cache_key)) + 1
+		frappe.cache.set_value(cache_key, count, expires_in_sec=seconds)
+		return count > limit
+	except Exception:
+		return False
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+def send_reset_link(email=None):
+	email = (email or "").strip().lower()
+	if not email or "@" not in email:
+		frappe.throw("Please enter your email.")
+	if _over_limit(f"p4s_reset_ip:{frappe.local.request_ip}", MAX_RESET_PER_IP) or \
+			_over_limit(f"p4s_reset_email:{email}", MAX_RESET_PER_EMAIL):
+		frappe.throw("Too many requests. Please try again after some time.")
+
+	# Team members (System Users) reset their password from the desk, not here.
+	if frappe.db.get_value("User", email, "user_type") == "System User":
+		return {"success": True, "message": RESET_SENT}
+
+	key = secrets.token_urlsafe(32)
+	link = frappe.utils.get_url(f"/reset-password?key={key}")
+	# pay4done checks the user may use RAMASETU and sends the mail from its own outgoing account.
+	try:
+		status, data = client.post("login.send_reset_email", {"link": link, "minutes": RESET_LINK_MINUTES},
+			as_user=email, raise_on_error=False)
+	except Pay4doneTimeout:
+		frappe.throw(UNAVAILABLE)
+
+	if status == 200 and (data or {}).get("success"):
+		frappe.cache.set_value(_reset_cache_key(key), email, expires_in_sec=RESET_LINK_MINUTES * 60)
+	elif status == 503 and isinstance(data, dict):
+		frappe.throw("We could not send the email right now. Please try again later or contact support.")
+	elif status in (0, 500, 502, 503, 504):
+		frappe.throw(UNAVAILABLE)
+	# Any other answer (e.g. 401: no such RAMASETU user) gets the same reply, so emails can't be probed.
+	return {"success": True, "message": RESET_SENT}
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+def reset_password(key=None, new_password=None):
+	if not key:
+		frappe.throw(RESET_INVALID)
+	cache_key = _reset_cache_key(key)
+	email = frappe.cache.get_value(cache_key)
+	if not email:
+		frappe.throw(RESET_INVALID)
+	if not new_password:
+		frappe.throw("Please enter a new password.")
+
+	try:
+		status, data = client.post("login.set_merchant_password", {"new_password": new_password},
+			as_user=email, raise_on_error=False)
+	except Pay4doneTimeout:
+		frappe.throw(UNAVAILABLE)
+
+	if status == 400:
+		frappe.throw((data or {}).get("error") or "Please choose a stronger password.")
+	if status != 200 or not (data or {}).get("success"):
+		if status == 401:
+			frappe.cache.delete_value(cache_key)
+			frappe.throw(RESET_INVALID)
+		frappe.throw(UNAVAILABLE)
+
+	frappe.cache.delete_value(cache_key)  # single use
+	# Log the user out of every RAMASETU session as well.
+	from frappe.sessions import clear_sessions
+	clear_sessions(user=email, keep_current=False, force=True)
+	frappe.db.commit()
+	return {"success": True}

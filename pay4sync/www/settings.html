@@ -11,8 +11,14 @@
 	<label class="p4s-check"><input type="checkbox" id="enable_webhook"> Enable Webhook</label>
 
 	<div class="p4s-field">
-		<label for="api_token">API Token</label>
-		<input id="api_token" name="api_token" maxlength="140">
+		<div class="p4s-field-head">
+			<label for="api_token">API Token</label>
+			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="api_token">Regenerate Token</button>
+		</div>
+		<div class="p4s-secret-row">
+			<input id="api_token" type="password" readonly placeholder="Not generated yet">
+			<button type="button" class="p4s-btn" data-copy="api_token">Copy</button>
+		</div>
 	</div>
 	<label class="p4s-check"><input type="checkbox" id="enable_api"> Enable API</label>
 
@@ -23,8 +29,14 @@
 	<label class="p4s-check"><input type="checkbox" id="enable_ip_address"> Enable IP Address</label>
 
 	<div class="p4s-field">
-		<label for="webhook_secret">Webhook Secret</label>
-		<input id="webhook_secret" name="webhook_secret" maxlength="140">
+		<div class="p4s-field-head">
+			<label for="webhook_secret">Webhook Secret</label>
+			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="webhook_secret">Regenerate Webhook Secret</button>
+		</div>
+		<div class="p4s-secret-row">
+			<input id="webhook_secret" type="password" readonly placeholder="Not generated yet">
+			<button type="button" class="p4s-btn" data-copy="webhook_secret">Copy</button>
+		</div>
 	</div>
 
 	<div class="p4s-form-actions">
@@ -39,12 +51,25 @@
 (function () {
 	const $ = (id) => document.getElementById(id);
 	const form = $("settings-form");
-	const TEXT = ["webhook", "api_token", "ip_address", "webhook_secret"];
+	const TEXT = ["webhook", "ip_address"];
 	const CHECKS = ["enable_webhook", "enable_api", "enable_ip_address"];
+	const SECRETS = ["api_token", "webhook_secret"];
+	const LABELS = { api_token: "API Token", webhook_secret: "Webhook Secret" };
 
+	/* Fill the hidden values. The button says "Generate …" while there is no value yet,
+	   "Regenerate …" once there is one. */
+	function fillSecrets(s) {
+		SECRETS.forEach((f) => {
+			$(f).value = s[f] || "";
+			document.querySelector(`[data-copy="${f}"]`).disabled = !s[f];
+			const name = f === "api_token" ? "Token" : "Webhook Secret";
+			document.querySelector(`[data-regenerate="${f}"]`).textContent = (s[f] ? "Regenerate " : "Generate ") + name;
+		});
+	}
 	function fill(s) {
 		TEXT.forEach((f) => { $(f).value = s[f] || ""; });
 		CHECKS.forEach((f) => { $(f).checked = !!Number(s[f]); });
+		fillSecrets(s);
 	}
 
 	async function load() {
@@ -57,6 +82,46 @@
 			$("p4s-loading").textContent = e.message;
 		}
 	}
+
+	/* Copy the hidden value; fall back to selecting it if the browser blocks the clipboard. */
+	document.querySelectorAll("[data-copy]").forEach((btn) => {
+		btn.addEventListener("click", async () => {
+			const input = $(btn.dataset.copy);
+			if (!input.value) return;
+			try {
+				await navigator.clipboard.writeText(input.value);
+				btn.textContent = "Copied";
+			} catch (e) {
+				input.type = "text";
+				input.select();
+				btn.textContent = "Press Ctrl+C";
+				setTimeout(() => { input.type = "password"; }, 8000);
+			}
+			setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+		});
+	});
+
+	document.querySelectorAll("[data-regenerate]").forEach((btn) => {
+		btn.addEventListener("click", async () => {
+			const field = btn.dataset.regenerate;
+			const label = LABELS[field];
+			// Only warn when there is a value that will stop working.
+			if ($(field).value) {
+				const ok = window.confirm(`Generate a new ${label}? The current ${label} will stop working ` +
+					"immediately, and you will need to update it on your server.");
+				if (!ok) return;
+			}
+			P4S.hideAlert();
+			try {
+				const r = await P4S.busy(btn,
+					P4S.call("pay4sync.api.settings.regenerate", { field }, "POST"), "Generating…");
+				fillSecrets(r.data);
+				P4S.showAlert(`${label} generated. Copy it and save it on your server.`, "success");
+			} catch (e) {
+				P4S.showAlert(e.message);
+			}
+		});
+	});
 
 	$("discard-btn").addEventListener("click", () => { P4S.hideAlert(); load(); });
 

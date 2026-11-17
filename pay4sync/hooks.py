@@ -266,3 +266,9 @@ website_route_rules = [
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+# Token API for merchants' servers: clean public URLs that don't show the app name.
+override_whitelisted_methods = {
+	"ramasetu.payout.create_payout": "pay4sync.api.token_api.create_payout",
+	"ramasetu.wallet.get_balance": "pay4sync.api.token_api.get_balance",
+	"ramasetu.payout.get_payout_status": "pay4sync.api.token_api.get_payout_status",
+}
