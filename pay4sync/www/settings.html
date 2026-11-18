@@ -12,7 +12,7 @@
 
 	<div class="p4s-field">
 		<label for="api_token">API Token</label>
-		<input id="api_token" name="api_token" maxlength="140" placeholder="Not generated yet">
+		<input id="api_token" name="api_token" maxlength="140" autocomplete="off">
 	</div>
 
 	<div class="p4s-field">
@@ -79,10 +79,11 @@
 		$("api_token_2").value = s.api_token_hash_set ? "••••••••••••••••" : "Not generated yet";
 		$("webhook_secret").value = s.webhook_secret_set ? "••••••••••••••••" : "Not generated yet";
 		Object.keys(SECRETS).forEach((f) => {
-			const isSet = !!s[f + "_set"];
+			// API Token 2 is "set" when its hash exists; a working token (either one) means confirm first.
+			const isSet = f === "api_token" ? !!s.api_token_hash_set : !!s[f + "_set"];
 			const btn = document.querySelector(`[data-regenerate="${f}"]`);
 			btn.textContent = (isSet ? "Regenerate " : "Generate ") + SECRETS[f].button;
-			btn.dataset.isSet = isSet ? "1" : "";
+			btn.dataset.isSet = (isSet || (f === "api_token" && s.api_token_set)) ? "1" : "";
 		});
 	}
 	function fill(s) {

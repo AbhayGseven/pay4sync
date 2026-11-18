@@ -2,15 +2,13 @@
 Settings APIs for the RAMASETU Settings page: the same fields as the merchant's
 User Settings record, which lives in pay4done (see utils/client.py).
 
-API Token (token 1) is shown to the merchant as it is and can be edited and saved
-(its hash is set by pay4done on save). "API Token 2" is its hash: the browser only
-learns whether it exists (`api_token_hash_set`), never the hash.
-
-Webhook Secret is never sent to the browser after it is created: the page gets
-`webhook_secret_set` only, and the new value once from `regenerate`.
-
-The Webhook Secret is never typed: only `regenerate` replaces it. The API Token can be
-typed and saved, or replaced by `regenerate`.
+API Token (token 1): shown and editable. Saving a changed token removes the hash in
+  pay4done, so the typed token is the one that works.
+API Token 2 (hash): never sent to the browser, only `api_token_hash_set`. "Generate /
+  Regenerate Token" makes a new token in pay4done, which saves only its hash (API Token is
+  left as it is and stops working) and returns the token once, for the popup.
+Webhook Secret: never sent to the browser after it is created (`webhook_secret_set` only);
+  only `regenerate` replaces it, and returns it once.
 """
 
 import secrets
@@ -28,7 +26,7 @@ SECRET_BYTES = 32  # -> 43-character URL-safe value
 
 
 def _without_secrets(response):
-	"""Keep the API Token (shown read-only); replace the Webhook Secret with a flag; never send the hash."""
+	"""Keep the API Token (shown, editable); replace the Webhook Secret with a flag; never send the hash."""
 	data = dict((response or {}).get("data") or {})
 	data["api_token_set"] = bool(data.get("api_token"))
 	data["webhook_secret_set"] = bool(data.pop("webhook_secret", None))
@@ -60,6 +58,10 @@ def regenerate(field=None):
 	require_merchant()
 	if field not in SECRET_FIELDS:
 		frappe.throw("Unknown field")
+	if field == "api_token":
+		# pay4done makes the token and saves only its hash; API Token (token 1) is not changed.
+		response = client.post("settings.regenerate_token", {})
+		return {**_without_secrets(response), "field": field, "value": response["value"]}
 	value = secrets.token_urlsafe(SECRET_BYTES)
 	response = client.post("settings.update_settings", {field: value})
 	return {**_without_secrets(response), "field": field, "value": value}
