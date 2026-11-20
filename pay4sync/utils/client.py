@@ -117,9 +117,12 @@ def call(http_method, endpoint, params=None, body=None, timeout=DEFAULT_TIMEOUT,
 		log_api_call(endpoint, http_method, 0, False, elapsed(), reference, f"Connection error: {e}", user=user)
 		frappe.throw(UNAVAILABLE)
 
-	ok = status_code == 200 and isinstance(data, dict) and data.get("success")
+	# An encrypted answer (token API with encryption on) has no readable "success" field.
+	encrypted = isinstance(data, dict) and "encrypted_key" in data and "signature" in data
+	ok = status_code == 200 and isinstance(data, dict) and bool(data.get("success") or encrypted)
 	if not ok:
-		error = (data.get("error") if isinstance(data, dict) else None) or f"HTTP {status_code}"
+		error = (data.get("error") if isinstance(data, dict) else None) or \
+			f"HTTP {status_code}" + (" (encrypted)" if encrypted else "")
 
 	log_api_call(endpoint, http_method, status_code, ok, elapsed(), reference or _reference(data), error, user=user)
 

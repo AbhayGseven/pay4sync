@@ -9,6 +9,9 @@ API Token 2 (hash): never sent to the browser, only `api_token_hash_set`. "Gener
   left as it is and stops working) and returns the token once, for the popup.
 Webhook Secret: never sent to the browser after it is created (`webhook_secret_set` only);
   only `regenerate` replaces it, and returns it once.
+Encryption Keys: "Generate Encryption Keys" makes a merchant key pair in pay4done. The public
+  key is saved there; the private key comes back once (with the server public key) for the
+  popup and is never stored. Enable Encryption itself is switched on by support.
 """
 
 import secrets
@@ -21,7 +24,7 @@ from pay4sync.utils.permissions import require_merchant
 # Fields the Save button may change.
 EDITABLE_FIELDS = ["webhook", "enable_webhook", "api_token", "enable_api", "ip_address", "enable_ip_address"]
 # Secrets that only `regenerate` may change.
-SECRET_FIELDS = ("api_token", "webhook_secret")
+SECRET_FIELDS = ("api_token", "webhook_secret", "encryption_keys")
 SECRET_BYTES = 32  # -> 43-character URL-safe value
 
 
@@ -62,6 +65,10 @@ def regenerate(field=None):
 		# pay4done makes the token and saves only its hash; API Token (token 1) is not changed.
 		response = client.post("settings.regenerate_token", {})
 		return {**_without_secrets(response), "field": field, "value": response["value"]}
+	if field == "encryption_keys":
+		response = client.post("settings.regenerate_encryption_keys", {})
+		return {**_without_secrets(response), "field": field, "value": response["value"],
+			"server_public_key": response["server_public_key"]}
 	value = secrets.token_urlsafe(SECRET_BYTES)
 	response = client.post("settings.update_settings", {field: value})
 	return {**_without_secrets(response), "field": field, "value": value}

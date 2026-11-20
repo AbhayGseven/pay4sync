@@ -15,6 +15,11 @@ Public URLs (hooks.override_whitelisted_methods), so no app name shows:
   POST /api/method/ramasetu.payout.create_payout
   GET  /api/method/ramasetu.wallet.get_balance
   GET  /api/method/ramasetu.payout.get_payout_status?payout_name=...
+
+Encryption: when the merchant has Enable Encryption on, every call is POST with an
+encrypted envelope as the JSON body (balance and status too). RAMASETU does not open
+it: the envelope and the encrypted answer pass through unchanged, and pay4done does
+all the checking, decrypting and encrypting.
 """
 
 import frappe
@@ -44,8 +49,9 @@ def _client_ip():
 	return frappe.local.request.remote_addr or ""
 
 
-def _forward(allowed_method, endpoint, timeout=client.DEFAULT_TIMEOUT):
-	if frappe.local.request.method != allowed_method:
+def _forward(allowed_methods, endpoint, timeout=client.DEFAULT_TIMEOUT):
+	method = frappe.local.request.method
+	if method not in allowed_methods:
 		return _error(405, "Method Not Allowed")
 
 	headers = frappe.local.request.headers
@@ -61,9 +67,9 @@ def _forward(allowed_method, endpoint, timeout=client.DEFAULT_TIMEOUT):
 	payload = {k: v for k, v in frappe.local.form_dict.items() if k != "cmd"}
 	try:
 		status, data = client.call(
-			allowed_method, "token_api." + endpoint,
-			params=payload if allowed_method == "GET" else None,
-			body=payload if allowed_method != "GET" else None,
+			method, "token_api." + endpoint,
+			params=payload if method == "GET" else None,
+			body=payload if method != "GET" else None,
 			timeout=timeout, as_user=user, raise_on_error=False,
 			extra_headers={"X-P4D-Api-Token": token, "X-P4D-Client-IP": _client_ip()},
 		)
@@ -82,14 +88,15 @@ def _forward(allowed_method, endpoint, timeout=client.DEFAULT_TIMEOUT):
 
 @frappe.whitelist(allow_guest=True)
 def create_payout(**kwargs):
-	return _forward("POST", "create_payout", timeout=60)
+	return _forward(("POST",), "create_payout", timeout=60)
 
 
 @frappe.whitelist(allow_guest=True)
 def get_balance(**kwargs):
-	return _forward("GET", "get_balance")
+	# GET plain, POST encrypted: pay4done decides which one this merchant may use.
+	return _forward(("GET", "POST"), "get_balance")
 
 
 @frappe.whitelist(allow_guest=True)
 def get_payout_status(**kwargs):
-	return _forward("GET", "get_payout_status")
+	return _forward(("GET", "POST"), "get_payout_status")

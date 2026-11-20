@@ -38,6 +38,30 @@
 		<input id="webhook_secret" readonly tabindex="-1">
 	</div>
 
+	<div class="p4s-field">
+		<div class="p4s-field-head">
+			<label for="encryption_keys">Encryption Keys</label>
+			<button type="button" class="p4s-btn p4s-btn-sm" data-regenerate="encryption_keys">Generate Encryption Keys</button>
+		</div>
+		<input id="encryption_keys" readonly tabindex="-1">
+	</div>
+
+	<!-- Public keys are not secret: shown read-only with Copy. -->
+	<div class="p4s-field">
+		<div class="p4s-field-head">
+			<label for="merchant_public_key">Merchant Public Key</label>
+			<button type="button" class="p4s-btn p4s-btn-sm" data-copy="merchant_public_key">Copy</button>
+		</div>
+		<textarea class="p4s-key-text" id="merchant_public_key" readonly placeholder="Not generated yet"></textarea>
+	</div>
+	<div class="p4s-field">
+		<div class="p4s-field-head">
+			<label for="server_public_key">Server Public Key</label>
+			<button type="button" class="p4s-btn p4s-btn-sm" data-copy="server_public_key">Copy</button>
+		</div>
+		<textarea class="p4s-key-text" id="server_public_key" readonly placeholder="Not available yet"></textarea>
+	</div>
+
 	<div class="p4s-form-actions">
 		<button type="button" class="p4s-btn" id="discard-btn">Discard</button>
 		<button type="submit" class="p4s-btn p4s-btn-primary" id="save-btn">Save</button>
@@ -59,6 +83,24 @@
 		</div>
 	</div>
 </div>
+
+<!-- New encryption keys: the private key is shown ONCE (never stored), with the server public key. -->
+<div class="p4s-modal-backdrop" id="keys-modal" hidden>
+	<div class="p4s-modal p4s-modal-wide" role="dialog" aria-modal="true" aria-labelledby="keys-modal-title">
+		<h2 id="keys-modal-title">New Encryption Keys</h2>
+		<p class="p4s-modal-warn">Save your <strong>Private Key</strong> on your server now. It is not stored
+			and will <strong>not be shown again</strong>. Never share it. If you lose it, generate new keys.</p>
+		<p class="p4s-key-label">Your Private Key</p>
+		<textarea class="p4s-key-text" id="key-private" readonly></textarea>
+		<div class="p4s-key-actions"><button type="button" class="p4s-btn p4s-btn-sm" data-copy="key-private">Copy</button></div>
+		<p class="p4s-key-label">Server Public Key <span class="p4s-muted">(also needed on your server)</span></p>
+		<textarea class="p4s-key-text" id="key-server" readonly></textarea>
+		<div class="p4s-key-actions"><button type="button" class="p4s-btn p4s-btn-sm" data-copy="key-server">Copy</button></div>
+		<div class="p4s-form-actions">
+			<button type="button" class="p4s-btn p4s-btn-primary" id="keys-done">Done</button>
+		</div>
+	</div>
+</div>
 {% endblock %}
 
 {% block p4s_script %}
@@ -71,6 +113,7 @@
 	const SECRETS = {
 		api_token: { label: "API Token", button: "Token" },
 		webhook_secret: { label: "Webhook Secret", button: "Webhook Secret" },
+		encryption_keys: { label: "Encryption Keys", button: "Encryption Keys" },
 	};
 
 	/* API Token: shown as it is. API Token 2 (its hash) and Webhook Secret: only whether they are set. */
@@ -78,6 +121,12 @@
 		$("api_token").value = s.api_token || "";
 		$("api_token_2").value = s.api_token_hash_set ? "••••••••••••••••" : "Not generated yet";
 		$("webhook_secret").value = s.webhook_secret_set ? "••••••••••••••••" : "Not generated yet";
+		$("encryption_keys").value = s.encryption_keys_set
+			? "Generated - encrypted requests work. Plain requests: " +
+				(Number(s.enable_encryption) ? "blocked" : "still allowed")
+			: "Not generated yet";
+		$("merchant_public_key").value = s.merchant_public_key || "";
+		$("server_public_key").value = s.server_public_key || "";
 		Object.keys(SECRETS).forEach((f) => {
 			// API Token 2 is "set" when its hash exists; a working token (either one) means confirm first.
 			const isSet = f === "api_token" ? !!s.api_token_hash_set : !!s[f + "_set"];
@@ -128,12 +177,44 @@
 	});
 	$("secret-done").addEventListener("click", closeOnce);
 
+	/* ---- encryption keys popup: private key once + server public key ---- */
+	function showKeysOnce(privateKey, serverKey) {
+		$("key-private").value = privateKey;
+		$("key-server").value = serverKey;
+		document.querySelectorAll("[data-copy]").forEach((b) => { b.textContent = "Copy"; });
+		$("keys-modal").hidden = false;
+		$("key-private").focus();
+		$("key-private").select();
+	}
+	document.querySelectorAll("[data-copy]").forEach((b) => {
+		b.addEventListener("click", async () => {
+			const box = $(b.dataset.copy);
+			if (!box.value) return;
+			try {
+				await navigator.clipboard.writeText(box.value);
+				b.textContent = "Copied";
+			} catch (e) {
+				box.select();
+				b.textContent = "Press Ctrl+C";
+			}
+		});
+	});
+	$("keys-done").addEventListener("click", () => {
+		$("key-private").value = "";   // forget it: it is never shown again
+		$("key-server").value = "";
+		$("keys-modal").hidden = true;
+	});
+
 	document.querySelectorAll("[data-regenerate]").forEach((btn) => {
 		btn.addEventListener("click", async () => {
 			const field = btn.dataset.regenerate;
 			const label = SECRETS[field].label;
-			if (btn.dataset.isSet && !window.confirm(`Generate a new ${label}? The current ${label} will stop ` +
-					"working immediately, and you will need to update it on your server.")) {
+			const question = field === "encryption_keys"
+				? "Generate new Encryption Keys? Your current private key will stop working immediately, " +
+					"and you will need to put the new private key on your server."
+				: `Generate a new ${label}? The current ${label} will stop ` +
+					"working immediately, and you will need to update it on your server.";
+			if (btn.dataset.isSet && !window.confirm(question)) {
 				return;
 			}
 			P4S.hideAlert();
@@ -141,7 +222,8 @@
 				const r = await P4S.busy(btn,
 					P4S.call("pay4sync.api.settings.regenerate", { field }, "POST"), "Generating…");
 				fillSecrets(r.data);
-				showOnce(field, r.value);
+				if (field === "encryption_keys") showKeysOnce(r.value, r.server_public_key);
+				else showOnce(field, r.value);
 			} catch (e) {
 				P4S.showAlert(e.message);
 			}
