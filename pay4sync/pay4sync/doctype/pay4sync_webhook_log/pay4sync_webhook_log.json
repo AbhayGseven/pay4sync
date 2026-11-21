@@ -15,6 +15,12 @@
   "key_valid",
   "reference_utr",
   "remote_ip",
+  "delivered",
+  "response_code",
+  "duration_ms",
+  "section_break_relay",
+  "target_url",
+  "error",
   "section_break_1",
   "payload"
  ],
@@ -53,7 +59,7 @@
    "default": "0",
    "fieldname": "key_valid",
    "fieldtype": "Check",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "in_standard_filter": 1,
    "label": "Key Valid"
   },
@@ -77,13 +83,51 @@
    "fieldtype": "Code",
    "label": "Payload",
    "options": "JSON"
+  },
+  {
+   "fieldname": "delivered",
+   "fieldtype": "Check",
+   "label": "Delivered",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "description": "The merchant's server accepted the webhook (HTTP 2xx)."
+  },
+  {
+   "fieldname": "response_code",
+   "fieldtype": "Int",
+   "label": "Merchant Response Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "duration_ms",
+   "fieldtype": "Int",
+   "label": "Duration (ms)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_relay",
+   "fieldtype": "Section Break",
+   "label": "Sent To"
+  },
+  {
+   "fieldname": "target_url",
+   "fieldtype": "Small Text",
+   "label": "Merchant Webhook URL",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Error",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "in_create": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-06 14:08:23.444108",
+ "modified": "2026-11-21 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "pay4sync",
  "name": "Pay4sync Webhook Log",
